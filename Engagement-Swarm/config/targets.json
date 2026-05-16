@@ -1,0 +1,7 @@
+[
+    {
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "duration": 300,
+        "actions": ["like", "scroll"]
+    }
+]

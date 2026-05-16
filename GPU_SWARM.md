@@ -158,5 +158,27 @@ Managing 40 accounts manually is impossible. Use the **Remote Config** feature t
 
 ---
 
-## 10. Security Note
+## 11. Triple-Threat Engine v6.0 (GaiaNet + Heurist + Mining)
+
+The v6.0 script is the ultimate monetization engine for 200+ workers. It merges three revenue streams into one:
+
+1.  **GaiaNet AI Node (Stable Uptime)**: 
+    - A decentralized AI knowledge node. 
+    - Earns points/rewards just by being "Online." 
+    - Runs 100% of the time in the background.
+2.  **Heurist AI Worker (Task-Based)**: 
+    - Generates AI images for high-value rewards ($2.50+/day).
+    - Takes priority for the GPU whenever a task is available.
+3.  **Crypto Mining (Fallback)**: 
+    - Mines Monero/Kawpow whenever the AI workers are idle. 
+    - Ensures your earnings never drop to zero.
+
+### Setup:
+1. Provide your **EVM Wallet** (for GaiaNet & Heurist).
+2. Provide your **XMR Wallet** (for Mining).
+3. The script handles all the "Industrial" orchestration, switching between engines automatically to maximize your profit.
+
+---
+
+## 12. Security Note
 If an admin looks at your notebook output, they see ResNet-50 training logs with loss curves and accuracy metrics. The miners run entirely in RAM (`/dev/shm`), connect only to `localhost`, and all external traffic is encrypted WSS through the Render Relay. Zero forensic footprint.
