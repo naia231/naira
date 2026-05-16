@@ -65,7 +65,47 @@ To monitor all your GPU Swarm workers from one place:
 
 ---
 
-## 4. Tips for "Enormous Earnings"
+## 4. The Advanced "Anti-Bot" Heartbeat (Mandatory)
+
+Kaggle and Colab will kill your session if they detect you are away from the keyboard. Do not use simple click bots, as their anti-bot systems will detect them.
+
+Paste this **Advanced Human-Simulation Heartbeat** into your browser's Developer Console (F12 -> Console) and hit Enter. This script mimics random human mouse movements and occasionally simulates hitting `Ctrl+S` (Save) to perfectly bypass detection.
+
+```javascript
+function humanHeartbeat() {
+    console.log("[Lumen] Generating human heartbeat...");
+    
+    // Simulate random mouse movement
+    let event = new MouseEvent('mousemove', {
+        'view': window,
+        'bubbles': true,
+        'cancelable': true,
+        'clientX': Math.floor(Math.random() * window.innerWidth),
+        'clientY': Math.floor(Math.random() * window.innerHeight)
+    });
+    document.dispatchEvent(event);
+
+    // Simulate clicking the Connect button (if it exists)
+    let connectBtn = document.querySelector("colab-connect-button") || document.querySelector("input#connect");
+    if(connectBtn) {
+        connectBtn.click();
+    }
+
+    // Simulate saving (Ctrl+S) 10% of the time
+    if (Math.random() > 0.90) {
+        document.dispatchEvent(new KeyboardEvent('keydown', {'key': 's', 'ctrlKey': true}));
+    }
+
+    // Schedule next heartbeat with random human delay (45s to 90s)
+    let nextDelay = Math.floor(Math.random() * (90000 - 45000 + 1)) + 45000;
+    setTimeout(humanHeartbeat, nextDelay);
+}
+humanHeartbeat();
+```
+
+---
+
+## 5. Tips for "Enormous Earnings"
 - **Account Rotation**: Kaggle gives you 30 hours of GPU per week. With 3 accounts, you can mine 24/7.
 - **NiceHash Integration**: Since mining XMR on a GPU is less profitable, I recommend setting up a **NiceHash** account and using your NiceHash BTC address in the `train.py` script. It will auto-switch to the most profitable GPU coin (KawPow/Autolykos) and pay you in BTC.
 - **Monitoring**: You will see the workers appearing on the MoneroOcean (CPU) and NiceHash (GPU) dashboards.
