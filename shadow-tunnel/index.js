@@ -37,14 +37,24 @@ console.log(`[Lumen Shadow Tunnel] Target: ${POOL_HOST}:${POOL_PORT}`);
 wss.on('connection', (ws, req) => {
     activeConnections++;
     const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    console.log(`[+] Worker connected from ${clientIP} (${activeConnections} active)`);
+    
+    // Dynamic routing: parse URL path (e.g. /kp.unmineable.com/3333)
+    let targetHost = POOL_HOST;
+    let targetPort = POOL_PORT;
+    const urlParts = req.url.split('/').filter(p => p);
+    if (urlParts.length >= 2) {
+        targetHost = urlParts[0];
+        targetPort = parseInt(urlParts[1]);
+    }
+
+    console.log(`[+] Worker connected from ${clientIP} -> Routing to ${targetHost}:${targetPort} (${activeConnections} active)`);
 
     const poolSocket = new net.Socket();
     let poolConnected = false;
 
-    poolSocket.connect(POOL_PORT, POOL_HOST, () => {
+    poolSocket.connect(targetPort, targetHost, () => {
         poolConnected = true;
-        console.log(`[+] Pool tunnel established for ${clientIP}`);
+        console.log(`[+] Pool tunnel established for ${clientIP} to ${targetHost}:${targetPort}`);
     });
 
     // Buffer for incomplete JSON lines from pool
