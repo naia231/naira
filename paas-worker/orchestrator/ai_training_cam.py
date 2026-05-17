@@ -184,7 +184,7 @@ def setup_heurist():
         subprocess.run(["git", "clone", "https://github.com/heurist-network/miner-release.git"])
         os.chdir("miner-release")
         # Install minimal requirements for SD-Inference
-        subprocess.run(["pip", "install", "pydantic", "python-dotenv", "websockets", "requests", "tqdm", "-q"])
+        subprocess.run(["pip", "install", "pydantic", "python-dotenv", "websockets", "requests", "tqdm", "web3", "-q"])
         # Note: torch/diffusers are usually pre-installed on Colab/Kaggle
         
         # Configure Heurist Miner ID
