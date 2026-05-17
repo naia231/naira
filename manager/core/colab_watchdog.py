@@ -39,6 +39,62 @@ class ColabWatchdog:
         await page.screenshot(path=path)
         return path
 
+    async def ensure_gpu_runtime(self, page):
+        """Clicks the Colab menu options to ensure a T4 GPU runtime is active."""
+        print(f"[*] Agent {self.index}: Checking runtime configuration...")
+        try:
+            # 1. Click "Runtime" in top menu bar
+            runtime_menu = await page.query_selector("text='Runtime'")
+            if not runtime_menu:
+                runtime_menu = await page.query_selector("#runtime-menu-button")
+            
+            if runtime_menu:
+                await runtime_menu.click()
+                await asyncio.sleep(1)
+            else:
+                print(f"[!] Agent {self.index}: Could not locate 'Runtime' menu.")
+                return
+
+            # 2. Click "Change runtime type"
+            change_type = await page.query_selector("text='Change runtime type'")
+            if change_type:
+                await change_type.click()
+                await asyncio.sleep(2)
+            else:
+                print(f"[!] Agent {self.index}: Could not locate 'Change runtime type' option.")
+                return
+
+            # 3. Check Notebook settings modal
+            # Colab displays dropdown for hardware accelerator
+            dropdown = await page.query_selector("colab-notebook-settings-dialog select, .hardware-accelerator select, select")
+            if dropdown:
+                options = await dropdown.query_selector_all("option")
+                target_value = None
+                for opt in options:
+                    text = await opt.inner_text()
+                    if "GPU" in text or "T4" in text:
+                        target_value = await opt.get_attribute("value")
+                        break
+                
+                if target_value:
+                    await dropdown.select_option(value=target_value)
+                    print(f"[+] Agent {self.index}: GPU Hardware Accelerator selected.")
+                else:
+                    print(f"[*] Agent {self.index}: T4 GPU option not explicitly found in selector, keeping default.")
+            
+            # 4. Click "Save" to apply changes
+            save_btn = await page.query_selector("button:has-text('Save'), text='Save'")
+            if save_btn:
+                await save_btn.click()
+                print(f"[+] Agent {self.index}: Runtime settings saved successfully.")
+                await asyncio.sleep(5)
+            else:
+                pass
+
+        except Exception as e:
+            print(f"[!] Agent {self.index}: Error ensuring GPU runtime: {e}. Proceeding with current.")
+
+
     async def launch_and_manage(self, notebook_url):
         """Main 24/7 management loop."""
         async with async_playwright() as p:
@@ -70,6 +126,10 @@ class ColabWatchdog:
             print(f"[*] Agent {self.index}: Opening Colab...")
             await page.goto(notebook_url, timeout=60000)
             await asyncio.sleep(10)
+
+            # Step 0: Ensure GPU runtime is enabled
+            await self.ensure_gpu_runtime(page)
+            await asyncio.sleep(3)
 
             # Step 1: Run All Cells
             print(f"[*] Agent {self.index}: Triggering 'Run All'...")
