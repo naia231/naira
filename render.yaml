@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: lumen-shadow-tunnel
+    env: node
+    plan: free
+    rootDir: shadow-tunnel
+    buildCommand: npm install
+    startCommand: npm start
