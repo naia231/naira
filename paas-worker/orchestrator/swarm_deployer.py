@@ -213,7 +213,7 @@ def generate_railway_json(services_count: int = 2) -> dict:
 
 if __name__ == "__main__":
     WALLET = "45QACrYpyJbCFmRW8P9N1peYc3Fw3WGKgBfs8Xgs8uDSfRSMjVzNUCQRwhwdys4xBzXShv67MhEj7H1eWQD3NHLRLDKXmEa"
-    RELAY = "wss://lumen-relay.onrender.com"
+    RELAY = "wss://lumen-shadow-tunnel.onrender.com"
     
     # Generate profit report for all platforms
     all_platforms = list(PLATFORM_PROFILES.keys())

