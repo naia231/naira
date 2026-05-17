@@ -43,7 +43,19 @@ class ColabWatchdog:
         """Main 24/7 management loop."""
         async with async_playwright() as p:
             proxy_config = self.proxy_rotator.get_proxy()
-            launch_args = {"headless": True, "args": ["--disable-blink-features=AutomationControlled"]}
+            # Optimized for 512MB RAM environments (Docker/Railway/Koyeb)
+            launch_args = {
+                "headless": True,
+                "args": [
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage",
+                    "--disable-extensions",
+                    "--disable-audio-output",
+                    "--js-flags=--max-old-space-size=256"
+                ]
+            }
             
             if proxy_config:
                 launch_args["proxy"] = proxy_config

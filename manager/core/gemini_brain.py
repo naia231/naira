@@ -11,7 +11,7 @@ class GeminiBrain:
 
     def __init__(self, api_key):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
 
     async def analyze_screen_with_dom(self, screenshot_path, dom_data):
         """Sends a screenshot and DOM bounding boxes to Gemini for exact coordinate clicking."""
