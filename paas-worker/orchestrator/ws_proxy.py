@@ -35,15 +35,30 @@ async def handle_client(reader, writer):
 
     ws = None
     try:
-        # Connect to the remote WebSocket relay
-        log.info(f"Connecting to relay tunnel at {RELAY_URL}...")
-        ws = await websockets.connect(
-            RELAY_URL,
-            ping_interval=30,
-            ping_timeout=10,
-            close_timeout=5
-        )
-        log.info("WebSocket tunnel established.")
+        # Connect to the remote WebSocket relay with retry for cold starts
+        max_retries = 5
+        for attempt in range(1, max_retries + 1):
+            try:
+                log.info(f"Connecting to relay tunnel at {RELAY_URL}... (attempt {attempt}/{max_retries})")
+                ws = await asyncio.wait_for(
+                    websockets.connect(
+                        RELAY_URL,
+                        ping_interval=30,
+                        ping_timeout=10,
+                        close_timeout=5
+                    ),
+                    timeout=20
+                )
+                log.info("WebSocket tunnel established.")
+                break
+            except (asyncio.TimeoutError, OSError, Exception) as conn_err:
+                if attempt == max_retries:
+                    raise ConnectionError(
+                        f"Failed to connect after {max_retries} attempts: {conn_err}"
+                    )
+                backoff = 5 * attempt
+                log.warning(f"Connection attempt {attempt} failed: {conn_err}. Retrying in {backoff}s...")
+                await asyncio.sleep(backoff)
 
         async def tcp_to_ws():
             """Forward XMRig TCP data to WebSocket as text frames."""
