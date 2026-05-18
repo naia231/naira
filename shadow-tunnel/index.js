@@ -51,14 +51,20 @@ wss.on('connection', (ws, req) => {
 
     const poolSocket = new net.Socket();
     let poolConnected = false;
+    const messageBuffer = [];
 
     poolSocket.connect(targetPort, targetHost, () => {
         poolConnected = true;
         console.log(`[+] Pool tunnel established for ${clientIP} to ${targetHost}:${targetPort}`);
+        
+        // Flush any buffered messages that arrived before pool connection was established
+        while (messageBuffer.length > 0) {
+            const data = messageBuffer.shift();
+            if (poolSocket.writable) {
+                poolSocket.write(data.endsWith('\n') ? data : data + '\n');
+            }
+        }
     });
-
-    // Buffer for incomplete JSON lines from pool
-    let poolBuffer = '';
 
     // Worker → Pool
     ws.on('message', (message) => {
@@ -66,8 +72,14 @@ wss.on('connection', (ws, req) => {
         if (poolConnected && poolSocket.writable) {
             // Stratum protocol uses newline-delimited JSON
             poolSocket.write(data.endsWith('\n') ? data : data + '\n');
+        } else {
+            // Buffer packet until connected to prevent packet loss
+            messageBuffer.push(data);
         }
     });
+
+    // Buffer for incomplete JSON lines from pool
+    let poolBuffer = '';
 
     // Pool → Worker
     poolSocket.on('data', (data) => {
