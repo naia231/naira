@@ -98,8 +98,11 @@ async def handle_client(reader, writer):
         log.error(f"Failed to connect to relay: {e}")
     finally:
         log.info("Closing local connection.")
-        if ws and not ws.closed:
-            await ws.close()
+        if ws:
+            try:
+                await ws.close()
+            except Exception:
+                pass
         writer.close()
         try:
             await writer.wait_closed()
