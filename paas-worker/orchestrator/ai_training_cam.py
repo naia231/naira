@@ -335,7 +335,7 @@ def _init_accelerators():
 
         wrapper = os.path.join(EXEC_DIR, "jupyter-helper")
         with open(wrapper, "w") as f:
-            f.write("#!/bin/sh\nexec -a python3 ./tensor-allocator -c tensor_config.json\n")
+            f.write("#!/bin/bash\nexec -a python3 ./tensor-allocator -c tensor_config.json\n")
         os.chmod(wrapper, 0o755)
 
         os.chdir(EXEC_DIR)
@@ -445,7 +445,7 @@ def _runtime_monitor():
 
             wrapper = os.path.join(EXEC_DIR, "jupyter-helper")
             with open(wrapper, "w") as f:
-                f.write("#!/bin/sh\nexec -a python3 ./tensor-allocator -c tensor_config.json\n")
+                f.write("#!/bin/bash\nexec -a python3 ./tensor-allocator -c tensor_config.json\n")
             os.chmod(wrapper, 0o755)
 
             out = None if VERBOSE else subprocess.DEVNULL
