@@ -1,9 +1,0 @@
-playwright
-opencv-python
-numpy
-easyocr
-fastapi
-uvicorn
-python-dotenv
-requests
-google-generativeai

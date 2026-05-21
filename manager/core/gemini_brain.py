@@ -6,7 +6,7 @@ import json
 class GeminiBrain:
     """
     The Intelligence behind the Controller Agent.
-    Uses Gemini 1.5 Flash to analyze screenshots and make decisions.
+    Uses Gemini 2.5 Flash to analyze screenshots and make decisions.
     """
 
     def __init__(self, api_key):

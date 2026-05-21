@@ -1,6 +1,5 @@
 requests
 flask
-threading
 psutil
 pynvml
 python-dotenv

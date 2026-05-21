@@ -19,8 +19,8 @@ LOCAL_PORT = int(os.getenv("PROXY_PORT", 10128))
 RELAY_URL = os.getenv("RELAY_URL")
 
 if not RELAY_URL:
-    log.error("RELAY_URL environment variable is required.")
-    sys.exit(1)
+    log.info("RELAY_URL is empty. Shadow Tunnel proxy disabled. Ensure miner is connecting directly to the pool.")
+    sys.exit(0)
 
 
 async def handle_client(reader, writer):

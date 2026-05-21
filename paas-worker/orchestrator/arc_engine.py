@@ -83,7 +83,7 @@ class ARCEngine:
             pool_url = "127.0.0.1:10128"
             pool_tls = False
         else:
-            pool_url = "gulf.moneroocean.stream:10128"
+            pool_url = "gulf.moneroocean.stream:20128"
             pool_tls = True
 
         config = {
@@ -208,12 +208,16 @@ class ARCEngine:
             except Exception:
                 pass
         
-        log.info(f"ARC: CPU target → {percentage}%")
+        # Calculate cpulimit target based on total CPU cores
+        cpu_count = int(os.cpu_count() or 1)
+        cpulimit_target = percentage * cpu_count
+        
+        log.info(f"ARC: CPU target → {percentage}% (cpulimit target: {cpulimit_target})")
         
         try:
             self.cpulimit_process = subprocess.Popen(
                 ["cpulimit", "-p", str(self.miner_process.pid), 
-                 "-l", str(percentage), "-z"],
+                 "-l", str(cpulimit_target), "-z"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
